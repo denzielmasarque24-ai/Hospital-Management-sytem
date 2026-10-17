@@ -20,6 +20,12 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Messaging Setup
+
+The Message page uses the existing Supabase browser client and the signed-in user's session. Copy `.env.local.example` to `.env.local` and provide the project URL and a public anon/publishable key. Never use a `service_role` key in a `NEXT_PUBLIC_` variable; it bypasses Row Level Security and is exposed to every browser. If a service-role key has been published, rotate it in the Supabase dashboard.
+
+Apply `supabase/migrations/20261016000000_create_messaging.sql` to create the conversations and messages tables, staff authorization function, and Row Level Security policies. To authorize a hospital staff member, add their Supabase Auth user ID to `public.hospital_staff` using the Supabase SQL editor or another trusted administrative process. Staff can then use the Message page to view conversations and reply; ordinary users can only access their own conversation.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

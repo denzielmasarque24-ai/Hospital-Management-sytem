@@ -1,0 +1,94 @@
+import { type NextRequest, NextResponse } from "next/server";
+
+import { createMiddlewareClient } from "@/lib/supabase/middleware";
+import { getRoleHomeForValue } from "@/lib/supabase/role-home.mjs";
+
+// Authentication pages are available regardless of session state.
+const PUBLIC_ROUTES = ["/login", "/register"];
+const PROTECTED_PREFIXES = ["/admin"];
+const ADMIN_ROLES = new Set(["ADMIN", "SUPER_ADMIN", "INVENTORY_MANAGER", "SALES_STAFF"]);
+const ADMIN_ONLY_PREFIXES = ["/admin/staff", "/admin/doctors", "/admin/settings", "/admin/careers", "/admin/services"];
+const INVENTORY_PREFIXES = ["/admin/products", "/admin/inventory", "/admin/suppliers"];
+const SALES_PREFIXES = ["/admin/orders", "/admin/customers"];
+
+// Routes that should never be touched by this middleware (assets, API, Next internals)
+const IGNORED_PREFIXES = ["/_next", "/api", "/favicon.ico"];
+
+export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip static assets and internal Next.js routes
+  if (IGNORED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return NextResponse.next();
+  }
+
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+  const isProtectedRoute = PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+
+  if (!isProtectedRoute && !isPublicRoute) {
+    return NextResponse.next();
+  }
+
+  const response = NextResponse.next({ request });
+  const supabase = createMiddlewareClient(request, response);
+  // getUser() validates the JWT with Supabase â€” cannot be spoofed by editing cookies
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user && isProtectedRoute) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    // Preserve the intended destination so we can redirect back after login
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (user && isProtectedRoute) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const role = String(profile?.role ?? "").trim().toUpperCase();
+    const canAdmin = ADMIN_ROLES.has(role);
+    const isAdminOnly = ADMIN_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    const isDashboard = pathname === "/admin";
+    const isInventory = INVENTORY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    const isSales = SALES_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    const allowed = canAdmin && (!isDashboard || role === "ADMIN" || role === "SUPER_ADMIN") &&
+      (!isAdminOnly || role === "ADMIN" || role === "SUPER_ADMIN") &&
+      (!isInventory || role !== "SALES_STAFF") && (!isSales || role !== "INVENTORY_MANAGER");
+
+    if (!allowed) {
+      const destination = request.nextUrl.clone();
+      destination.pathname = "/";
+      destination.search = "";
+      return NextResponse.redirect(destination);
+    }
+  }
+
+  // Route authenticated users by the role stored in their public profile.
+  if (user && isPublicRoute) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const role = String(profile?.role ?? "").trim().toUpperCase();
+    const roleHome = getRoleHomeForValue(role);
+    if (!roleHome) return response;
+
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = roleHome;
+    homeUrl.search = "";
+    return NextResponse.redirect(homeUrl);
+  }
+
+  return response;
+}
+
+export const config = {
+  // Run on every route except static files
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)"],
+};

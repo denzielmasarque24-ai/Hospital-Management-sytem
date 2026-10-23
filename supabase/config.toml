@@ -5,9 +5,9 @@ otp_expiry = 600
 otp_length = 6
 
 [auth.email.template.confirmation]
-subject = "Verify your MediWell Pharma account"
+subject = "Verify your MedWell Medical Hospital account"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.magic_link]
-subject = "Your MediWell Pharma verification code"
+subject = "Your MedWell Medical Hospital verification code"
 content_path = "./supabase/templates/magic_link.html"

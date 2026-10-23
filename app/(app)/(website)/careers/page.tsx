@@ -1,25 +1,47 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { HeartPulse, TrendingUp, UsersRound } from "lucide-react";
 
 import { CareersBoard } from "@/components/common/CareersBoard";
-import { SectionTitle } from "@/components/common/SectionTitle";
 
 export const metadata: Metadata = {
-  title: "Careers at MediWell Pharma",
-  description: "Explore career opportunities at MediWell Pharma and join a team committed to healthcare excellence.",
+  title: "Careers at MedWell Medical Hospital",
+  description: "View current job listings published by MedWell Medical Hospital.",
 };
+
+const careerHighlights = [
+  { label: "Meaningful Work", icon: HeartPulse },
+  { label: "Professional Growth", icon: TrendingUp },
+  { label: "Supportive Team", icon: UsersRound },
+];
 
 export default function CareersPage() {
   return (
-    <div className="container page-shell">
-      <div className="page-banner-compact">
-        <SectionTitle
-          eyebrow="Join our team"
-          title="Careers at MediWell Pharma"
-          description="We are building a team of healthcare professionals and problem-solvers who are passionate about transforming lives."
-        />
-      </div>
+    <main className="careers-page">
+      <nav className="container careers-breadcrumb" aria-label="Breadcrumb">
+        <Link href="/">Home</Link>
+        <span aria-hidden="true">›</span>
+        <span aria-current="page">Careers</span>
+      </nav>
+
+      <section className="careers-hero" aria-labelledby="careers-title">
+        <img className="careers-hero-image" src="/images/careers/careers.png" alt="MedWell healthcare professionals working together" fetchPriority="high" />
+        <div className="careers-hero-wash" aria-hidden="true" />
+        <div className="container careers-hero-inner">
+          <div className="careers-hero-copy">
+            <span className="careers-eyebrow"><i /> JOIN OUR TEAM</span>
+            <h1 id="careers-title">Careers at MedWell Medical Hospital</h1>
+            <p>We are building a team of healthcare professionals and problem-solvers who are passionate about transforming lives.</p>
+            <ul className="careers-highlights" aria-label="Working at MedWell">
+              {careerHighlights.map(({ label, icon: Icon }) => (
+                <li key={label}><span><Icon size={17} strokeWidth={2} aria-hidden="true" /></span>{label}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <CareersBoard />
-    </div>
+    </main>
   );
 }

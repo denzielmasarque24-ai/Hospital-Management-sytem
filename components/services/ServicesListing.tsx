@@ -48,7 +48,7 @@ export function ServicesListing() {
   if (error) return <p className="public-content-state" role="alert">Services could not be loaded right now. Please try again later.</p>;
   if (!services.length) return <p className="public-content-state">Our service listings are being updated. Please check back soon.</p>;
 
-  return <div className="service-grid">{services.map((service) => <Link key={service.id} href={`/services/${encodeURIComponent(service.slug)}`} className="service-card" aria-label={`Learn more about ${service.name}`}>
+  return <div className="service-grid" id="centers-of-excellence">{services.map((service) => <Link key={service.id} href={`/services/${encodeURIComponent(service.slug)}`} className="service-card" aria-label={`Learn more about ${service.name}`}>
     <div className="service-image"><div className="service-image-placeholder" aria-label={service.image_url ? undefined : "No service image"}><Stethoscope size={42} strokeWidth={1.6} aria-hidden="true" /></div><img src={service.image_url || "/images/services/medical-placeholder.svg"} alt={service.name} onError={(event) => { event.currentTarget.style.display = "none"; }} /></div>
     <div className="service-body"><h3>{service.name}</h3><p>{service.short_description || service.description || "Learn more about this healthcare service."}</p><span className="arrow-button" aria-hidden="true">→</span></div>
   </Link>)}</div>;

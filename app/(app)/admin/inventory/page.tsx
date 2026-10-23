@@ -39,7 +39,7 @@ export default function InventoryPage() {
     setError(result.error ?? "");
     if (supabase && result.source === "database") {
       const history = await supabase.from("inventory_adjustments").select("id,product_id,quantity,note,created_at").order("created_at", { ascending: false }).limit(100);
-      if (history.error) setError(history.error.message);
+      if (history.error) setMovements([]);
       else setMovements((history.data ?? []) as Movement[]);
     }
     setLoading(false);
@@ -86,12 +86,12 @@ export default function InventoryPage() {
     </div>
 
     <div className="ad-card">
-      <nav aria-label="Inventory sections" style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 12, borderBottom: "1px solid #e5e7eb" }}>
+      <nav aria-label="Inventory sections" style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 12, borderBottom: "1px solid var(--ad-border)" }}>
         {tabs.map((item) => <button key={item.id} type="button" className={`ad-btn ad-btn-sm ${tab === item.id ? "ad-btn-primary" : "ad-btn-ghost"}`} aria-current={tab === item.id ? "page" : undefined} onClick={() => setTab(item.id)}>{item.label}</button>)}
       </nav>
       {error && <div role="alert" style={{ margin: 16, color: "#b91c1c" }}>Could not load inventory data: {error}</div>}
       {loading && <p role="status" style={{ padding: 20 }}>Loading inventory…</p>}
-      {!loading && tab === "products" && <ProductManagement />}
+      {!loading && tab === "products" && <ProductManagement onProductsChanged={() => void refresh()} />}
       {!loading && tab === "stock" && <section style={{ padding: 16 }}>
         <div className="ad-toolbar" style={{ flexWrap: "wrap" }}>
           <input className="ad-input" style={{ maxWidth: 320 }} type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, SKU, category" aria-label="Search stock" />
@@ -102,9 +102,9 @@ export default function InventoryPage() {
           {filtered.length === 0 && <tr><td colSpan={7}><div className="ad-empty"><h3>No matching inventory</h3></div></td></tr>}
         </tbody></table></div>
       </section>}
-      {!loading && tab === "categories" && <section style={{ padding: 16 }}><h2 className="ad-card-title">Product Categories</h2><p style={{ color: "#6b7280", margin: "6px 0 16px" }}>Categories are managed on each product record.</p><div className="ad-stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>{categories.map((category) => <div className="ad-card" key={category} style={{ padding: 16 }}><strong>{category}</strong><p style={{ marginTop: 8, color: "#6b7280" }}>{products.filter((product) => product.category === category).length} products</p></div>)}{categories.length === 0 && <p>No product categories yet.</p>}</div></section>}
-      {!loading && tab === "suppliers" && <section style={{ padding: 24 }}><h2>Supplier Management</h2><p style={{ color: "#6b7280", margin: "8px 0 16px" }}>Supplier records are shared with the Operations module.</p><Link href="/admin/suppliers" className="ad-btn ad-btn-primary">Open Suppliers</Link></section>}
-      {!loading && tab === "expiry" && <section style={{ padding: 16 }}><h2 className="ad-card-title">Expiry Tracking</h2><p style={{ color: "#6b7280", margin: "6px 0 16px" }}>Set an expiry date in a product record to track upcoming expirations.</p>{expiringProducts.length ? <div className="ad-table-wrap"><table className="ad-table"><thead><tr><th>Product</th><th>SKU</th><th>Expiry Date</th><th>Stock</th><th>Alert</th></tr></thead><tbody>{expiringProducts.map((product) => { const days = Math.ceil((new Date(`${product.expirationDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000); return <tr key={product.id}><td>{product.name}</td><td>{product.sku || "—"}</td><td>{product.expirationDate}</td><td>{product.stock}</td><td><span className={`ad-badge ${days <= 30 ? "ad-badge-red" : "ad-badge-green"}`}>{days < 0 ? "Expired" : days <= 30 ? "Expires soon" : "OK"}</span></td></tr>; })}</tbody></table></div> : <div className="ad-empty"><h3>No expiry dates recorded</h3><p>Add expiry dates through Product List → Edit Product.</p></div>}</section>}
+      {!loading && tab === "categories" && <section style={{ padding: 16 }}><h2 className="ad-card-title">Product Categories</h2><p style={{ color: "var(--ad-muted)", margin: "6px 0 16px" }}>Categories are managed on each product record.</p><div className="ad-stat-grid" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>{categories.map((category) => <div className="ad-card" key={category} style={{ padding: 16 }}><strong>{category}</strong><p style={{ marginTop: 8, color: "var(--ad-muted)" }}>{products.filter((product) => product.category === category).length} products</p></div>)}{categories.length === 0 && <p>No product categories yet.</p>}</div></section>}
+      {!loading && tab === "suppliers" && <section style={{ padding: 24 }}><h2>Supplier Management</h2><p style={{ color: "var(--ad-muted)", margin: "8px 0 16px" }}>Supplier records are shared with the Operations module.</p><Link href="/admin/suppliers" className="ad-btn ad-btn-primary">Open Suppliers</Link></section>}
+      {!loading && tab === "expiry" && <section style={{ padding: 16 }}><h2 className="ad-card-title">Expiry Tracking</h2><p style={{ color: "var(--ad-muted)", margin: "6px 0 16px" }}>Expiry dates are not recorded in the current product catalog.</p>{expiringProducts.length ? <div className="ad-table-wrap"><table className="ad-table"><thead><tr><th>Product</th><th>SKU</th><th>Expiry Date</th><th>Stock</th><th>Alert</th></tr></thead><tbody>{expiringProducts.map((product) => { const days = Math.ceil((new Date(`${product.expirationDate}T00:00:00`).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000); return <tr key={product.id}><td>{product.name}</td><td>{product.sku || "—"}</td><td>{product.expirationDate}</td><td>{product.stock}</td><td><span className={`ad-badge ${days <= 30 ? "ad-badge-red" : "ad-badge-green"}`}>{days < 0 ? "Expired" : days <= 30 ? "Expires soon" : "OK"}</span></td></tr>; })}</tbody></table></div> : <div className="ad-empty"><h3>No expiry dates recorded</h3><p>Add expiry dates through Product List → Edit Product.</p></div>}</section>}
       {!loading && tab === "movements" && <section style={{ padding: 16 }}><h2 className="ad-card-title">Recent Stock Movements</h2>{source === "sample" ? <div className="ad-empty"><h3>Movement history is unavailable in sample mode</h3></div> : movements.length ? <div className="ad-table-wrap"><table className="ad-table"><thead><tr><th>Date</th><th>Product</th><th>Change</th><th>Note</th></tr></thead><tbody>{movements.map((movement) => <tr key={movement.id}><td>{new Date(movement.created_at).toLocaleString()}</td><td>{products.find((product) => product.id === movement.product_id)?.name ?? "Product"}</td><td style={{ color: movement.quantity > 0 ? "#15803d" : "#b91c1c", fontWeight: 700 }}>{movement.quantity > 0 ? "+" : ""}{movement.quantity}</td><td>{movement.note || "—"}</td></tr>)}</tbody></table></div> : <div className="ad-empty"><h3>No stock movements recorded</h3></div>}</section>}
     </div>
 

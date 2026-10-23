@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
 
 import { ProductCatalog } from "@/components/products/ProductCatalog";
-import { SectionTitle } from "@/components/common/SectionTitle";
+import "./products.css";
 
 export const metadata: Metadata = {
-  title: "MediWell Pharma Products",
-  description: "Browse MediWell Pharma products across prescriptions, wellness, personal care, and medical devices.",
+  title: "Medical Products & Supplies",
+  description: "Browse items currently listed in the MedWell Medical Hospital product catalog.",
 };
 
 export default function ProductsPage() {
   return (
-    <div className="container page-shell">
-      <div className="page-banner-compact">
-        <SectionTitle
-          eyebrow="Pharmaceutical catalog"
-          title="Our Products"
-          description="Trusted solutions for everyday wellness, treatment, and preventative care."
-        />
-      </div>
+    <div className="container page-shell products-page">
+      <section className="products-hero" aria-labelledby="products-heading">
+        <div className="products-hero-copy">
+          <span className="products-hero-badge">HOSPITAL CATALOG</span>
+          <h1 id="products-heading">Medical Products <em>&amp; Supplies</em></h1>
+          <p>Browse items currently listed in the catalog. Confirm availability and suitability with the hospital team.</p>
+        </div>
+      </section>
 
       <ProductCatalog />
     </div>

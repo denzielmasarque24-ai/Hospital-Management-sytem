@@ -4,16 +4,16 @@ import { SectionTitle } from "@/components/common/SectionTitle";
 
 export const metadata: Metadata = {
   title: "Help Center",
-  description: "Find answers and guidance for appointments, doctors, pharmacy, lab tests, and more at MediWell Pharma.",
+  description: "Find guidance for appointments, doctors, hospital services, diagnostics, and patient support.",
 };
 
 const helpTopics = [
   { title: "Appointments", description: "Book, confirm, or reschedule consultations in a few quick steps." },
   { title: "Doctors", description: "Search by specialty and learn about clinician availability and expertise." },
-  { title: "Pharmacy", description: "Place medicine orders and explore product categories with ease." },
+  { title: "Medical products", description: "Browse items listed in the medical products catalog and contact the hospital to confirm availability." },
   { title: "Lab Tests", description: "Choose diagnostic services and find the right screening options." },
-  { title: "Payments", description: "Understand billing, deposits, and payment support for services and products." },
-  { title: "Emergency Services", description: "Get immediate guidance on urgent care and after-hours support." },
+  { title: "Payments", description: "Billing and payment details have not yet been provided. Contact the hospital for current information." },
+  { title: "Emergency Services", description: "Emergency contact and availability details have not yet been provided. For immediate emergencies, call your local emergency services." },
 ];
 
 export default function HelpPage() {
@@ -23,7 +23,7 @@ export default function HelpPage() {
         <SectionTitle
           eyebrow="Support"
           title="Help Center"
-          description="Find the guidance you need for appointments, care, pharmacy, and diagnostic services."
+          description="Find guidance for appointments, care services, patient information, and diagnostics. Hospital-specific details are marked where they need confirmation."
         />
       </div>
 

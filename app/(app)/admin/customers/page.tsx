@@ -55,7 +55,7 @@ export default function CustomersPage() {
                 <tr key={c.id}>
                   <td>
                     <div style={{ fontWeight: 600 }}>{c.name}</div>
-                    <div style={{ fontSize: 11, color: "#6b7280" }}>{c.email}</div>
+                    <div style={{ fontSize: 11, color: "var(--ad-muted)" }}>{c.email}</div>
                   </td>
                   <td style={{ fontSize: 12 }}>{c.phone}</td>
                   <td style={{ fontWeight: 600 }}>{c.orders}</td>
@@ -65,7 +65,7 @@ export default function CustomersPage() {
                       {c.status}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12, color: "#6b7280" }}>{c.joined}</td>
+                  <td style={{ fontSize: 12, color: "var(--ad-muted)" }}>{c.joined}</td>
                   <td>
                     <div style={{ display: "flex", gap: 6 }}><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => setView(c)}>View</button><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => void toggleStatus(c)}>{c.status === "active" ? "Deactivate" : "Activate"}</button></div>
                   </td>
@@ -92,9 +92,9 @@ export default function CustomersPage() {
                 ["Phone", view.phone], ["Total Orders", view.orders],
                 ["Total Spent", formatPhp(view.spent)], ["Status", view.status], ["Joined", view.joined],
               ].map(([k, v]) => (
-                <div key={String(k)} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
-                  <span style={{ width: 110, fontSize: 12, fontWeight: 700, color: "#6b7280", flexShrink: 0 }}>{k}</span>
-                  <span style={{ fontSize: 13, color: "#111827" }}>{String(v)}</span>
+                <div key={String(k)} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--ad-border)" }}>
+                  <span style={{ width: 110, fontSize: 12, fontWeight: 700, color: "var(--ad-muted)", flexShrink: 0 }}>{k}</span>
+                  <span style={{ fontSize: 13, color: "var(--ad-text)" }}>{String(v)}</span>
                 </div>
               ))}
             </div>
@@ -104,7 +104,7 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
-      {notice && <p style={{ marginTop: 12, color: "#6b7280", fontSize: 12 }}>{notice}</p>}
+      {notice && <p style={{ marginTop: 12, color: "var(--ad-muted)", fontSize: 12 }}>{notice}</p>}
     </AdminShell>
   );
 }

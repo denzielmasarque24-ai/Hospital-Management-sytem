@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase/client";
 import { getRoleHomePath } from "@/lib/supabase/auth";
 import { getOtpVerificationMessage, normalizeAuthEmail } from "@/lib/supabase/otp-errors.mjs";
+import { getLoginDestination, getLoginErrorMessage, safeAuthDiagnostic } from "@/lib/supabase/login-errors.mjs";
+import { clearPendingRegistration, getVerifiedSessionUser } from "@/lib/supabase/registration-state.mjs";
 
 export function LoginForm({ onClose, onSwitchToRegister }) {
   const router = useRouter();
@@ -15,6 +17,11 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryError, setRecoveryError] = useState("");
+  const [recoverySent, setRecoverySent] = useState(false);
+  const [isSendingRecovery, setIsSendingRecovery] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,8 +30,32 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
   const [otp, setOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
   const otpActionInFlight = useRef(false);
   const submitInFlight = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    if (supabase) void (async () => {
+      try {
+        const user = await getVerifiedSessionUser(supabase);
+        if (!user || !active) return;
+        const destination = await getRoleHomePath(user);
+        if (!active) return;
+        clearPendingRegistration();
+        onClose?.("authenticated");
+        router.replace(getLoginDestination(destination, redirectTo));
+        router.refresh();
+      } catch { if (active) setSubmitError("We could not check your existing session. Please try logging in."); }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const timer = setTimeout(() => setResendSeconds((seconds) => Math.max(0, seconds - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendSeconds]);
 
   const validate = () => {
     const nextErrors = {};
@@ -41,28 +72,38 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const getSignInError = (error) => {
-    const message = (error?.message || "").toLowerCase();
-    const code = (error?.code || "").toLowerCase();
-
-    if (code === "email_not_confirmed" || message.includes("email not confirmed")) {
-      return "Please confirm your email address before logging in. Check your inbox for the confirmation link.";
-    }
-    if (code === "invalid_credentials" || message.includes("invalid login credentials")) {
-      return "Email or password is incorrect. If you have not registered yet, create an account.";
-    }
-    if (error?.status === 429) return "Too many sign-in attempts. Wait a moment and try again.";
-    if (message.includes("fetch") || message.includes("network")) {
-      return "We could not reach the sign-in service. Check your connection and try again.";
-    }
-    return "We could not sign you in. Check your details and try again.";
-  };
-
   const getRoleError = (error) => {
     if (error?.code === "PGRST116" || error?.message === "PROFILE_NOT_FOUND") {
-      return "Your account does not have an authorized MediWell role yet. Contact an administrator.";
+      return "Your account does not have an authorized MedWell Medical Hospital role yet. Contact an administrator.";
     }
     return "We signed you in, but could not verify your authorized role. Please try again or contact an administrator.";
+  };
+
+  const handleRecoverySubmit = async (event) => {
+    event.preventDefault();
+    setRecoveryError("");
+    setRecoverySent(false);
+    const normalizedEmail = normalizeAuthEmail(recoveryEmail);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setRecoveryError("Enter a valid email address to continue.");
+      return;
+    }
+    if (!supabase) {
+      setRecoveryError("Password recovery is unavailable right now. Please try again later.");
+      return;
+    }
+    setIsSendingRecovery(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setRecoverySent(true);
+    } catch {
+      setRecoveryError("We could not send a reset link right now. Please try again later.");
+    } finally {
+      setIsSendingRecovery(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -77,6 +118,7 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
 
     submitInFlight.current = true;
     setIsSubmitting(true);
+    let operation = "password";
     try {
       const normalizedEmail = normalizeAuthEmail(email);
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -85,27 +127,39 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
       });
 
       if (error) {
-        setSubmitError(getSignInError(error));
+        console.error("MedWell authentication failed", safeAuthDiagnostic(error, "password"));
+        setSubmitError(getLoginErrorMessage(error));
         return;
       }
-      if (!data.user) {
+      if (!data.user || !data.session) {
         setSubmitError("Sign-in completed without a user session. Please try again.");
         return;
       }
 
-      await supabase.auth.signOut();
+      const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+      if (signOutError) {
+        console.error("MedWell authentication failed", safeAuthDiagnostic(signOutError, "prepare-verification"));
+        setSubmitError("We could not prepare secure verification. Please try again.");
+        return;
+      }
+      setPendingEmail(normalizedEmail);
+      setVerificationNotice("");
+      setResendSeconds(60);
+      operation = "send-code";
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email: normalizedEmail,
         options: { shouldCreateUser: false },
       });
       if (otpError) {
-        setSubmitError("We could not send a verification code. Please try again.");
+        console.error("MedWell authentication failed", safeAuthDiagnostic(otpError, "send-code"));
+        setSubmitError(getLoginErrorMessage(otpError, "send-code"));
         return;
       }
       setPendingEmail(normalizedEmail);
       setVerificationNotice(`A verification code was sent to ${normalizedEmail}.`);
     } catch (error) {
-      setSubmitError(getSignInError(error));
+      console.error("MedWell authentication failed", safeAuthDiagnostic(error, operation));
+      setSubmitError(getLoginErrorMessage(error, operation));
     } finally {
       submitInFlight.current = false;
       setIsSubmitting(false);
@@ -125,6 +179,7 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
         type: "email",
       });
       if (error) {
+        console.error("MedWell authentication failed", safeAuthDiagnostic(error, "verify-code"));
         setSubmitError(getOtpVerificationMessage(error));
         return;
       }
@@ -143,12 +198,8 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
         setSubmitError(getRoleError(error));
         return;
       }
-      onClose?.();
-      // Respect an in-app return target only after role verification. Admins always
-      // land on their dashboard, and patient accounts always return to the homepage.
-      const target = destination === "/admin" || destination === "/"
-        ? destination
-        : redirectTo !== "/" ? redirectTo : destination;
+      const target = getLoginDestination(destination, redirectTo);
+      onClose?.("authenticated");
       router.replace(target);
       router.refresh();
     } catch {
@@ -160,13 +211,17 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
   };
 
   const handleResendOtp = async () => {
-    if (!supabase || otpActionInFlight.current) return;
+    if (!supabase || otpActionInFlight.current || resendSeconds > 0) return;
     otpActionInFlight.current = true;
     setIsResending(true);
     setSubmitError("");
+    setResendSeconds(60);
     try {
       const { error } = await supabase.auth.signInWithOtp({ email: pendingEmail, options: { shouldCreateUser: false } });
-      if (error) setSubmitError(error.status === 429 ? "A code was sent recently. Wait a moment before requesting another." : "We could not send a new verification code. Try again shortly.");
+      if (error) {
+        console.error("MedWell authentication failed", safeAuthDiagnostic(error, "send-code"));
+        setSubmitError(getLoginErrorMessage(error, "send-code"));
+      }
       else { setOtp(""); setSubmitError(""); setVerificationNotice(`A new code was sent to ${pendingEmail}. Use this latest email; previously sent codes may no longer work.`); }
     } catch {
       setSubmitError("We could not reach the verification service. Check your connection and try again.");
@@ -179,7 +234,7 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
   if (pendingEmail) {
     return (
       <form className="auth-form" onSubmit={handleVerifyOtp} noValidate>
-        <p className="auth-success" role="status">{verificationNotice || `A verification code was sent to ${pendingEmail}. Enter it below to continue.`}</p>
+        <p className="auth-success" role="status">{verificationNotice || `Email verification is required for ${pendingEmail}. Request a code below if delivery failed.`}</p>
         <div className="form-row">
           <label htmlFor="auth-login-otp">Verification Code</label>
           <input
@@ -197,9 +252,26 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
         <button type="submit" className="login-submit-button" disabled={isVerifying || isResending}>
           {isVerifying ? "Verifying..." : "Confirm & Continue"}
         </button>
-        <button type="button" className="auth-switch-button" onClick={() => void handleResendOtp()} disabled={isVerifying || isResending}>
-          {isResending ? "Sending a new code..." : "Resend verification code"}
+        <button type="button" className="auth-switch-button" onClick={() => void handleResendOtp()} disabled={isVerifying || isResending || resendSeconds > 0}>
+          {isResending ? "Sending a new code..." : resendSeconds > 0 ? `Resend available in ${resendSeconds}s` : "Resend verification code"}
         </button>
+      </form>
+    );
+  }
+
+  if (recoveryOpen) {
+    return (
+      <form className="auth-form recovery-form" onSubmit={handleRecoverySubmit} noValidate>
+        <h3 className="recovery-heading">Forgot Password?</h3>
+        <p className="recovery-description">Enter your email address and we’ll send instructions to reset your password if an account matches.</p>
+        <div className="form-row">
+          <label htmlFor="auth-recovery-email">Email Address</label>
+          <input id="auth-recovery-email" name="email" type="email" autoComplete="email" autoFocus value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} placeholder="you@example.com" aria-invalid={Boolean(recoveryError)} />
+        </div>
+        {recoveryError ? <p className="auth-error" role="alert">{recoveryError}</p> : null}
+        {recoverySent ? <p className="auth-success" role="status">If an account exists for this email, you’ll receive a password reset link shortly.</p> : null}
+        <button type="submit" className="login-submit-button" disabled={isSendingRecovery}>{isSendingRecovery ? "Sending…" : "Send Reset Link"}</button>
+        <button type="button" className="auth-switch-button recovery-back" onClick={() => { setRecoveryOpen(false); setRecoveryError(""); setRecoverySent(false); }}>Back to Log In</button>
       </form>
     );
   }
@@ -246,6 +318,7 @@ export function LoginForm({ onClose, onSwitchToRegister }) {
           </button>
         </div>
         {errors.password ? <span id="auth-login-password-error" className="field-error">{errors.password}</span> : null}
+        <button type="button" className="forgot-password-link" onClick={() => { setRecoveryEmail(email); setRecoveryOpen(true); setRecoveryError(""); setRecoverySent(false); }}>Forgot Password?</button>
       </div>
 
       {submitError ? <p className="auth-error" role="alert">{submitError}</p> : null}

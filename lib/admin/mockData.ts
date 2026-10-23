@@ -14,6 +14,8 @@ export type Product = {
   description: string;
   image?: string;
   expirationDate?: string;
+  available?: boolean;
+  prescriptionRequired?: boolean;
 };
 
 export type Order = {

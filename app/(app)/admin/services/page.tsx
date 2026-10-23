@@ -6,7 +6,7 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { deleteService, listServices, saveService, slugifyContent, type Service, type ServiceInput } from "@/lib/admin/managed-content";
 import { removeUploadedServiceImage, serviceImagePathFromUrl, uploadServiceImage, validateServiceImage } from "@/lib/admin/service-image";
 
-const EMPTY: ServiceInput = { name: "", slug: "", short_description: "", description: "", image_url: null, available: true };
+const EMPTY: ServiceInput = { name: "", slug: "", short_description: "", description: "", image_url: null, section: "services_facilities" };
 
 export default function ServicesManagementPage() {
   const [services, setServices] = useState<Service[]>([]);
@@ -18,6 +18,7 @@ export default function ServicesManagementPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [query, setQuery] = useState("");
+  const [sectionFilter, setSectionFilter] = useState<"all" | Service["section"]>("all");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -35,13 +36,14 @@ export default function ServicesManagementPage() {
 
   const visible = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return services.filter((service) => !normalized || [service.name, service.slug, service.short_description, service.description].some((field) => (field ?? "").toLowerCase().includes(normalized)));
-  }, [services, query]);
+    return services.filter((service) => (sectionFilter === "all" || service.section === sectionFilter)
+      && (!normalized || [service.name, service.slug, service.short_description, service.description].some((field) => (field ?? "").toLowerCase().includes(normalized))));
+  }, [services, query, sectionFilter]);
   const setField = <K extends keyof ServiceInput>(key: K, value: ServiceInput[K]) => setForm((current) => ({ ...current, [key]: value }));
   const startAdd = () => { setEditing(null); setForm(EMPTY); setFile(null); setError(""); setNotice(""); setFormOpen(true); };
   const startEdit = (service: Service) => {
     setEditing(service);
-    setForm({ name: service.name, slug: service.slug, short_description: service.short_description, description: service.description, image_url: service.image_url, available: service.available });
+    setForm({ name: service.name, slug: service.slug, short_description: service.short_description, description: service.description, image_url: service.image_url, section: service.section });
     setFile(null); setError(""); setNotice(""); setFormOpen(true);
   };
   const closeForm = () => { if (saving) return; setFormOpen(false); setEditing(null); setForm(EMPTY); setFile(null); };
@@ -61,6 +63,14 @@ export default function ServicesManagementPage() {
       setError("Name, slug, short description, and full description are required.");
       return;
     }
+    if (!editing && !file) {
+      setError("Upload an approved service image before adding this public listing.");
+      return;
+    }
+    const confirmation = editing
+      ? "Confirm these service details and image changes have been reviewed by the hospital before saving the public listing."
+      : "This service will be added to the public website immediately. Confirm the hospital has reviewed and approved its section, description, and image.";
+    if (!window.confirm(confirmation)) return;
     setSaving(true); setError("");
     let uploaded: Awaited<ReturnType<typeof uploadServiceImage>> | null = null;
     let saved: Service | null = null;
@@ -74,7 +84,7 @@ export default function ServicesManagementPage() {
       saved = await saveService({
         name, slug, short_description: form.short_description.trim(),
         description: form.description.trim(), image_url: imageUrl,
-        available: form.available,
+        section: form.section,
       }, editing?.id);
       setServices((current) => editing
         ? current.map((item) => item.id === saved!.id ? saved! : item)
@@ -99,15 +109,6 @@ export default function ServicesManagementPage() {
     }
   };
 
-  const toggleAvailability = async (service: Service) => {
-    setSaving(true); setError("");
-    try {
-      const updated = await saveService({ name: service.name, slug: service.slug, short_description: service.short_description, description: service.description, image_url: service.image_url, available: !service.available }, service.id);
-      setServices((current) => current.map((item) => item.id === updated.id ? updated : item));
-      setNotice(updated.available ? "Service is now available publicly." : "Service is now hidden publicly.");
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update service status."); }
-    finally { setSaving(false); }
-  };
   const remove = async () => {
     if (!confirmDelete || saving) return;
     setSaving(true); setError("");
@@ -121,19 +122,20 @@ export default function ServicesManagementPage() {
     finally { setSaving(false); }
   };
 
-  return <AdminShell title="Services"><section className="ad-services-page">
+  return <AdminShell title="Services" adminOnly><section className="ad-services-page">
     <header className="ad-page-header"><div><h1>Services Management</h1><p>Manage service information and images displayed on the public website.</p></div><button type="button" className="ad-btn ad-btn-primary" onClick={startAdd}>+ Add Service</button></header>
     {error && <div className="ad-content-alert error" role="alert">{error}</div>}
     {notice && <div className="ad-content-alert success" role="status">{notice}</div>}
     <div className="ad-card ad-managed-list">
       <div className="ad-card-header"><span className="ad-card-title">Services</span><span>{services.length} total</span></div>
       <div className="ad-services-search"><input className="ad-input" type="search" placeholder="Search services" aria-label="Search services" value={query} onChange={(event) => setQuery(event.target.value)} /></div>
+      <div className="ad-services-search"><label className="ad-label" htmlFor="service-section-filter">Section</label><select id="service-section-filter" className="ad-select" value={sectionFilter} onChange={(event) => setSectionFilter(event.target.value as typeof sectionFilter)}><option value="all">All sections</option><option value="clinical_departments">Clinical Departments</option><option value="services_facilities">Services &amp; Facilities</option></select></div>
       {loading ? <div className="ad-empty" role="status">Loading services…</div>
         : visible.length === 0 ? <div className="ad-empty"><h3>{services.length ? "No matching services" : "No services yet"}</h3><p>{services.length ? "Try a different search." : "Add a service to get started."}</p></div>
         : <div className="ad-services-grid">{visible.map((service) => <article className="ad-service-admin-card" key={service.id}>
-          <div className="ad-service-admin-image"><Stethoscope className="ad-service-medical-fallback" aria-hidden="true" /><img src={service.image_url || "/images/services/medical-placeholder.svg"} alt={service.name} onError={(event) => { event.currentTarget.style.display = "none"; }} /><span className={`ad-badge ${service.available ? "ad-badge-green" : "ad-badge-gray"}`}>{service.available ? "Available" : "Hidden"}</span></div>
+          <div className="ad-service-admin-image"><Stethoscope className="ad-service-medical-fallback" aria-hidden="true" /><img src={service.image_url || "/images/services/medical-placeholder.svg"} alt={service.name} onError={(event) => { event.currentTarget.style.display = "none"; }} /><span className="ad-badge ad-badge-gray">{service.section === "clinical_departments" ? "Clinical Department" : "Services & Facilities"}</span></div>
           <div className="ad-service-admin-body"><div className="ad-service-admin-eyebrow">{service.slug}</div><h2>{service.name}</h2><p>{service.short_description || service.description}</p>
-            <div className="ad-managed-actions"><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => setPreview(service)}>View</button><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => startEdit(service)}>Edit</button><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" disabled={saving} onClick={() => void toggleAvailability(service)}>{service.available ? "Hide" : "Make Available"}</button><button type="button" className="ad-btn ad-btn-danger ad-btn-sm" onClick={() => setConfirmDelete(service)}>Delete</button></div>
+            <div className="ad-managed-actions"><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => setPreview(service)}>View</button><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => startEdit(service)}>Edit</button><button type="button" className="ad-btn ad-btn-danger ad-btn-sm" onClick={() => setConfirmDelete(service)}>Delete</button></div>
           </div>
         </article>)}</div>}
     </div>
@@ -143,7 +145,7 @@ export default function ServicesManagementPage() {
         <div className="ad-form-grid">
           <Field label="Service Name"><input className="ad-input" value={form.name} onChange={(event) => { setField("name", event.target.value); if (!editing && !form.slug) setField("slug", slugifyContent(event.target.value)); }} required /></Field>
           <Field label="Slug"><input className="ad-input" value={form.slug} onChange={(event) => setField("slug", slugifyContent(event.target.value))} required /></Field>
-          <Field label="Status"><select className="ad-select" value={form.available ? "available" : "hidden"} onChange={(event) => setField("available", event.target.value === "available")}><option value="available">Available</option><option value="hidden">Hidden</option></select></Field>
+          <Field label="Section"><select className="ad-select" value={form.section} onChange={(event) => setField("section", event.target.value as Service["section"])}><option value="clinical_departments">Clinical Departments</option><option value="services_facilities">Services &amp; Facilities</option></select></Field>
           <div className="ad-form-row"><span className="ad-label">Service Image</span><div className="ad-service-image-preview"><Stethoscope className="ad-service-image-fallback-icon" aria-hidden="true" /><img src={previewUrl || form.image_url || "/images/services/medical-placeholder.svg"} alt="Service preview" onError={(event) => { event.currentTarget.style.display = "none"; }} /></div><input ref={fileInput} className="ad-product-file-input" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => { selectImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} aria-label="Choose service image" /><div className="ad-managed-actions"><button type="button" className="ad-btn ad-btn-ghost" disabled={saving} onClick={() => fileInput.current?.click()}>{file || form.image_url ? "Replace Image" : "Choose Image"}</button><small>JPG, PNG, or WebP · maximum 5 MB</small></div>{uploading && <span className="ad-product-uploading" role="status"><span className="ad-upload-spinner" />Uploading image…</span>}</div>
         </div>
         <Field label="Short Description"><textarea className="ad-textarea" rows={2} maxLength={240} value={form.short_description} onChange={(event) => setField("short_description", event.target.value)} required /></Field>

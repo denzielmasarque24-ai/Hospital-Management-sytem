@@ -4,14 +4,14 @@ import { SectionTitle } from "@/components/common/SectionTitle";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
-  description: "Read the MediWell Pharma terms and conditions for using our services and website.",
+  description: "Read the MedWell Medical Hospital terms and conditions for using the website and its services.",
 };
 
 export default function TermsPage() {
   return (
     <div className="container page-shell policy-page">
       <div className="page-banner-compact">
-        <SectionTitle eyebrow="Legal" title="Terms & Conditions" description="These terms govern your use of MediWell Pharma services and website content." />
+        <SectionTitle eyebrow="Legal" title="Terms & Conditions" description="These terms govern your use of MedWell Medical Hospital website content and configured services." />
       </div>
 
       <div className="info-card">
@@ -26,7 +26,7 @@ export default function TermsPage() {
 
       <div className="info-card" style={{ marginTop: '20px' }}>
         <h3>Website Use</h3>
-        <p>Users must not misuse the website, attempt unauthorized access, or submit harmful or abusive content. MediWell Pharma reserves the right to restrict access when necessary to maintain service quality and safety.</p>
+        <p>Users must not misuse the website, attempt unauthorized access, or submit harmful or abusive content. MedWell Medical Hospital may restrict access when necessary to maintain service quality and safety.</p>
       </div>
     </div>
   );

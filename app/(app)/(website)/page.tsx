@@ -1,83 +1,103 @@
 ﻿import Link from "next/link";
 
 import { AppointmentCTA } from "@/components/appointments/AppointmentCTA";
-import { ProductCatalog } from "@/components/products/ProductCatalog";
 import { DoctorCarousel } from "@/components/doctors/DoctorCarousel";
+import { PartnersCarousel } from "@/components/home/PartnersCarousel";
+import { HomePromoCards } from "@/components/home/HomePromoCards";
 import { Hero } from "@/components/home/Hero";
 import { NewsCard } from "@/components/news/NewsCard";
 import { SectionTitle } from "@/components/common/SectionTitle";
-import { ServicesListing } from "@/components/services/ServicesListing";
-import { StatCard } from "@/components/common/StatCard";
+import { getPublicContact } from "@/lib/services/public-service";
+import { healthArticles } from "@/lib/news/articles";
+import { ArrowRight, BookOpen, CalendarCheck, ClipboardList, HeartPulse, PackageSearch, Phone, Stethoscope } from "lucide-react";
 
 const helpItems = [
-  { title: "Find a Doctor", text: "Connect with our specialist doctors.", href: "/doctors", icon: "✚" },
-  { title: "Book Appointment", text: "Schedule an appointment easily.", href: "/appointment", icon: "▣" },
-  { title: "Pharmacy", text: "Wide range of medicines at your fingertips.", href: "/pharmacy", icon: "◈" },
-  { title: "Lab Tests", text: "Accurate & reliable diagnostic tests.", href: "/lab-tests", icon: "♧" },
-  { title: "Health Packages", text: "Preventive health checkup packages.", href: "/health-packages", icon: "♡" },
+  { title: "Find a Doctor", text: "Browse published doctor profiles.", href: "/doctors", icon: "doctor" },
+  { title: "Book Appointment", text: "Send an appointment request.", href: "/appointment", icon: "appointment" },
+  { title: "Pharmacy", text: "Browse listed medical products.", href: "/pharmacy", icon: "pharmacy" },
+  { title: "Lab Tests", text: "Explore diagnostic services.", href: "/lab-tests", icon: "laboratory" },
+  { title: "Health Packages", text: "View available package information.", href: "/health-packages", icon: "packages" },
 ];
 
-const stats = [
-  { value: "25+", label: "Years of Excellence" },
-  { value: "150+", label: "Expert Doctors" },
-  { value: "500+", label: "Medical Services" },
-  { value: "100K+", label: "Happy Patients" },
-  { value: "50+", label: "Healthcare Centers" },
+const healthcareServices = [
+  { title: "Pharmacy", text: "Browse medical products currently listed in the hospital catalog.", href: "/pharmacy", image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=85", alt: "Pharmaceutical products", icon: "✚" },
+  { title: "Cardiology", text: "Explore the hospital’s current service listings and care information.", href: "/services", image: "https://images.unsplash.com/photo-1530026186672-2cd00ffc50fe?auto=format&fit=crop&w=800&q=85", alt: "Anatomical human heart model", icon: "♡" },
+  { title: "Neurology", text: "Browse configured services and contact the hospital for details.", href: "/services", image: "https://images.unsplash.com/photo-1644648479153-2a3dbee76212?auto=format&fit=crop&w=800&q=85", alt: "Human brain on a white background", icon: "⌁" },
+  { title: "Pathology Lab", text: "Review diagnostic and laboratory services currently listed.", href: "/lab-tests", image: "https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=800&q=85", alt: "Laboratory testing equipment", icon: "⌬" },
+  { title: "Pediatrics", text: "Browse current service information for patients and families.", href: "/services", image: "https://images.unsplash.com/photo-1632053002928-1919605ee6f7?auto=format&fit=crop&w=800&q=85", alt: "Child healthcare image", icon: "＋" },
 ];
 
-const articles = [
-  {
-    category: "Health Tips",
-    title: "Importance of Regular Health Checkups",
-    date: "May 02, 2024",
-    image: "https://images.unsplash.com/photo-1579684385127-1ef15d508118?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    category: "Nutrition",
-    title: "Boost Your Immunity Naturally",
-    date: "May 01, 2024",
-    image: "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=600&q=80",
-  },
-  {
-    category: "Pharma News",
-    title: "Advances in Modern Medicine",
-    date: "Apr 30, 2024",
-    image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
-  },
+const verifiedHighlights = [
+  { icon: Stethoscope, value: "Doctors", label: "Published profiles" },
+  { icon: ClipboardList, value: "Services", label: "Configured listings" },
+  { icon: PackageSearch, value: "Products", label: "Online catalog" },
+  { icon: CalendarCheck, value: "Appointments", label: "Requests for review" },
+  { icon: BookOpen, value: "Patient info", label: "Online resources" },
 ];
 
-export default function HomePage() {
+const whyItems = [
+  "Browse doctor profiles published in the hospital directory",
+  "Explore services currently configured by the hospital",
+  "Review medical products listed in the online catalog",
+  "Send appointment requests for hospital review",
+];
+
+const articles = healthArticles.slice(0, 3);
+
+const homepageCarouselSlides = [
+  { src: "/images/carousel/hospital.png", alt: "Hospital care environment" },
+  { src: "/images/carousel/emegency.png", alt: "Emergency Department entrance and ambulance", objectPosition: "center 35%" },
+  { src: "/images/carousel/p1.jpg", alt: "Hospital corridor and patient beds" },
+  { src: "/images/carousel/p2.jpg", alt: "Modern operating room lighting" },
+  { src: "/images/carousel/p3.jpg", alt: "Hospital corridor with care staff" },
+  { src: "/images/carousel/p4.jpg", alt: "Hospital patient ward" },
+  { src: "/images/carousel/p5.jpg", alt: "Medical care and health symbols" },
+  { src: "/images/carousel/p6.jpg", alt: "Hospital corridor and wheelchair" },
+  { src: "/images/carousel/p7.jpg", alt: "Operating room equipment" },
+  { src: "/images/carousel/p8.jpg", alt: "Care team in a surgical room" },
+];
+
+export default async function HomePage() {
+  const contact = await getPublicContact().catch(() => null);
   return (
     <>
       <Hero
         eyebrow="YOUR HEALTH, OUR PRIORITY"
         title="Better Science.<br />Better <span>Health.</span>"
-        description="We are committed to improving and extending lives through innovative medicines and trusted healthcare solutions."
+        description="Find hospital services, browse published doctor profiles, and request an appointment for review by the care team."
         primaryCtaLabel="Explore Services"
         primaryCtaHref="/services"
         secondaryCtaLabel="Find a Doctor"
         secondaryCtaHref="/doctors"
         image="https://images.unsplash.com/photo-1584982751601-97dcc096659c?auto=format&fit=crop&w=1000&q=85"
         imageAlt="Doctor in clinic"
+        slides={homepageCarouselSlides}
         floatingCards={[
-          { title: "24/7", description: "Emergency Support" },
-          { title: "Certified", description: "Quality Medicines" },
-          { title: "Trusted by", description: "100K+ Happy Patients" },
+          { title: "Emergency information", description: "Contact the hospital to confirm availability." },
+          { title: "Medical products", description: "Browse catalog listings and confirm availability." },
+          { title: "Patient information", description: "Guidance for patients and families." },
         ]}
+        quickLinks={helpItems}
       />
 
-      <section className="help-section">
+      <section className="home-healthcare-section" aria-labelledby="home-healthcare-title">
         <div className="container">
-          <SectionTitle eyebrow="How can we help" title="How Can We Help You?" centered />
-
-          <div className="help-grid">
-            {helpItems.map((item) => (
-              <Link key={item.title} href={item.href} className="help-card">
-                <div className="help-icon">{item.icon}</div>
-                <div className="help-text">
-                  <h3>{item.title}</h3>
-                  <p>{item.text}</p>
-                  <span className="arrow">→</span>
+          <header className="home-healthcare-heading">
+            <span className="section-eyebrow">Care and services</span>
+            <h2 id="home-healthcare-title"><span>Our</span> <em>Healthcare</em> <span>Services</span></h2>
+            <p>Comprehensive healthcare solutions for you and your family.</p>
+          </header>
+          <div className="home-service-grid">
+            {healthcareServices.map((service) => (
+              <Link className="home-service-card" href={service.href} key={service.title}>
+                <div className="home-service-image">
+                  <img src={service.image} alt={service.alt} />
+                  <span className="home-service-icon" aria-hidden="true">{service.icon}</span>
+                </div>
+                <div className="home-service-copy">
+                  <h3>{service.title}</h3>
+                  <p>{service.text}</p>
+                  <span className="home-service-arrow" aria-label={`Explore ${service.title}`}><ArrowRight size={17} /></span>
                 </div>
               </Link>
             ))}
@@ -85,99 +105,53 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="services-section">
-        <div className="container">
-          <SectionTitle
-            eyebrow="Healthcare Services"
-            title="Our <span>Healthcare</span> Services"
-            description="Comprehensive healthcare solutions for you and your family."
-            centered
-          />
+      <section className="home-highlights-band" aria-label="MedWell online resources">
+        <div className="container home-highlights-grid">
+          {verifiedHighlights.map(({ icon: Icon, value, label }) => (
+            <div className="home-highlight" key={value}>
+              <Icon size={25} strokeWidth={1.7} aria-hidden="true" />
+              <div><strong>{value}</strong><span>{label}</span></div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          <ServicesListing />
+      <section className="home-why-section">
+        <div className="container home-why-grid">
+          <div className="home-mission-visual">
+            <img src="/images/carousel/hospital.png" alt="Hospital building exterior" />
+            <div className="home-mission-card"><span>Our Mission</span><p>To support accessible, patient-centered care through clear information and coordinated healthcare services.</p></div>
+          </div>
+          <div className="home-why-copy">
+            <span className="section-eyebrow">Why choose us</span>
+            <h2>Why Choose <em>MedWell</em> Medical Hospital?</h2>
+            <p>Find current information about the hospital’s services, published care team, and patient support options.</p>
+            <ul>{whyItems.map((item) => <li key={item}><HeartPulse size={17} aria-hidden="true" /><span>{item}</span></li>)}</ul>
+            <Link href="/about" className="home-about-link">Learn More About Us <ArrowRight size={16} aria-hidden="true" /></Link>
+          </div>
+          <aside className="home-emergency-card">
+            <div className="home-emergency-icon"><Phone size={21} aria-hidden="true" /></div>
+            <span className="home-emergency-kicker">Hospital contact</span>
+            <h2>Need Emergency Help?</h2>
+            <p>Contact the hospital to confirm urgent care details and current availability. For an immediate emergency, call your local emergency services.</p>
+            {contact?.phone ? <a href={`tel:${contact.phone}`} className="home-emergency-phone"><Phone size={17} aria-hidden="true" />{contact.phone}</a> : <Link href="/contact" className="home-emergency-phone">Contact the hospital <ArrowRight size={16} /></Link>}
+          </aside>
         </div>
       </section>
 
       <section className="doctors-home-section">
         <div className="container">
           <SectionTitle
-            eyebrow="Meet Our Doctors"
+            eyebrow="MEET OUR DOCTORS"
             title="Meet Our Doctors"
-            description="Experienced healthcare professionals dedicated to providing compassionate and quality medical care."
+            description="Find experienced healthcare professionals to support your health and well-being."
             centered
           />
           <DoctorCarousel />
         </div>
       </section>
 
-      <section className="stats-band">
-        <div className="container stats-grid">
-          {stats.map((stat) => (
-            <StatCard key={stat.label} value={stat.value} label={stat.label} />
-          ))}
-        </div>
-      </section>
-
-      <section className="services-section">
-        <div className="container">
-          <SectionTitle
-            eyebrow="Featured Products"
-            title="Trusted Healthcare Products"
-            description="Explore quality medicines, wellness essentials, and medical devices."
-            centered
-          />
-          <ProductCatalog />
-        </div>
-      </section>
-
-      <section className="why-section">
-        <div className="container why-grid">
-          <div className="why-copy">
-            <SectionTitle
-              eyebrow="Why choose us"
-              title="Why Choose MediWell Pharma?"
-              description="We combine innovation, expertise, and care to deliver the best healthcare experience."
-            />
-
-            <ul className="feature-list">
-              <li>WHO-GMP Certified</li>
-              <li>High Quality &amp; Safe Medicines</li>
-              <li>Affordable &amp; Accessible Healthcare</li>
-              <li>Experienced &amp; Caring Professionals</li>
-              <li>Advanced Technology &amp; Facilities</li>
-            </ul>
-
-            <Link href="/about" className="btn-primary">
-              Learn More About Us
-            </Link>
-          </div>
-
-          <div className="why-visual">
-            <img
-              src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80"
-              alt="Healthcare facility"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="emergency-section">
-        <div className="container emergency-card">
-          <div className="emergency-copy">
-            <span className="section-eyebrow light">Emergency help</span>
-            <h2>Need Emergency Help?</h2>
-            <p>We are available 24/7 for emergencies. Your health is our priority.</p>
-            <div className="emergency-phone">+1 234 567 8900</div>
-          </div>
-
-          <div className="emergency-visual">
-            <img
-              src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=900&q=80"
-              alt="Ambulance and emergency care"
-            />
-          </div>
-        </div>
-      </section>
+      <HomePromoCards />
 
       <section className="news-section">
         <div className="container">
@@ -192,11 +166,8 @@ export default function HomePage() {
             {articles.map((article) => (
               <NewsCard
                 key={article.title}
-                category={article.category}
-                title={article.title}
-                date={article.date}
-                image={article.image}
-                href="/news"
+                {...article}
+                href={`/articles/${article.slug}`}
               />
             ))}
           </div>
@@ -204,6 +175,7 @@ export default function HomePage() {
       </section>
 
       <AppointmentCTA />
+      <PartnersCarousel />
     </>
   );
 }

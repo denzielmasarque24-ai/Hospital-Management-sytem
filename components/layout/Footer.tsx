@@ -5,8 +5,10 @@ const footerLinks = [
   { href: "/services", label: "Services" },
   { href: "/products", label: "Products" },
   { href: "/doctors", label: "Find a Doctor" },
+  { href: "/patient-information", label: "Patient Information" },
   { href: "/appointment", label: "Book Appointment" },
   { href: "/contact", label: "Message" },
+  { href: "/careers", label: "Careers" },
 ];
 
 const legalLinks = [
@@ -21,15 +23,15 @@ export function Footer() {
     <footer className="site-footer">
       <div className="container footer-grid">
         <div>
-          <div className="logo footer-logo" aria-label="MediWell Pharma footer logo">
+          <div className="logo footer-logo" aria-label="MedWell Medical Hospital footer logo">
             <span className="logo-icon">✚</span>
             <span>
-              <strong>MediWell</strong>
-              <small>PHARMA</small>
+              <strong>MedWell</strong>
+              <small>MEDICAL HOSPITAL</small>
             </span>
           </div>
           <p className="footer-text">
-            Delivering trusted healthcare, innovative medicines, and compassionate care for every family.
+            Supporting patients and families with accessible hospital information and care services.
           </p>
         </div>
 
@@ -58,7 +60,7 @@ export function Footer() {
       </div>
 
       <div className="container footer-bottom">
-        <p>© 2026 MediWell Pharma. All rights reserved.</p>
+        <p>© 2026 MedWell Medical Hospital. All rights reserved.</p>
       </div>
     </footer>
   );

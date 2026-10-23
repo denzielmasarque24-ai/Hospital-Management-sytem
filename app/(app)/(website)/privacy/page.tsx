@@ -4,14 +4,14 @@ import { SectionTitle } from "@/components/common/SectionTitle";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "Read the MediWell Pharma privacy policy explaining how personal information is handled and protected.",
+  description: "Read the MedWell Medical Hospital privacy policy explaining how personal information is handled and protected.",
 };
 
 export default function PrivacyPage() {
   return (
     <div className="container page-shell policy-page">
       <div className="page-banner-compact">
-        <SectionTitle eyebrow="Legal" title="Privacy Policy" description="This policy explains how MediWell Pharma manages personal information and protects your privacy." />
+        <SectionTitle eyebrow="Legal" title="Privacy Policy" description="This policy explains how MedWell Medical Hospital manages personal information and protects your privacy." />
       </div>
 
       <div className="info-card">
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
 
       <div className="info-card" style={{ marginTop: '20px' }}>
         <h3>How We Use Information</h3>
-        <p>Information is used to deliver treatment, schedule appointments, maintain health records, provide pharmacy support, and improve the quality of our services. We do not sell or rent personal information to third parties.</p>
+        <p>Information is used to respond to appointment requests, provide requested website services, and support communication with the hospital. See the hospital’s approved privacy notice for the complete details about data handling and sharing.</p>
       </div>
 
       <div className="info-card" style={{ marginTop: '20px' }}>

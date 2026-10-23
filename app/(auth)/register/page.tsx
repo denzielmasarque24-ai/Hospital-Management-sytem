@@ -4,7 +4,7 @@ import { AuthPage } from "@/components/auth/AuthPage";
 
 export const metadata: Metadata = {
   title: "Register",
-  description: "Create a MediWell Hospital account.",
+  description: "Create a MedWell Medical Hospital account.",
 };
 
 export default function RegisterPage() {

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
 type HeroSlide = {
   src: string;
   alt: string;
+  objectPosition?: string;
 };
 
 type HeroCarouselProps = {
@@ -14,10 +16,13 @@ type HeroCarouselProps = {
 
 export function HeroCarousel({ slides, autoPlayMs = 5000 }: HeroCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isInteractionPaused, setIsInteractionPaused] = useState(false);
+  const interactionTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    if (slides.length < 2 || isPaused) {
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (slides.length < 2 || isHovered || isInteractionPaused || prefersReducedMotion) {
       return;
     }
 
@@ -26,7 +31,20 @@ export function HeroCarousel({ slides, autoPlayMs = 5000 }: HeroCarouselProps) {
     }, autoPlayMs);
 
     return () => window.clearInterval(interval);
-  }, [autoPlayMs, isPaused, slides.length]);
+  }, [autoPlayMs, isHovered, isInteractionPaused, slides.length]);
+
+  useEffect(() => () => {
+    if (interactionTimer.current !== null) window.clearTimeout(interactionTimer.current);
+  }, []);
+
+  const pauseForInteraction = () => {
+    setIsInteractionPaused(true);
+    if (interactionTimer.current !== null) window.clearTimeout(interactionTimer.current);
+    interactionTimer.current = window.setTimeout(() => {
+      setIsInteractionPaused(false);
+      interactionTimer.current = null;
+    }, autoPlayMs);
+  };
 
   const showPrevious = () => {
     setCurrentSlide((previous) => (previous - 1 + slides.length) % slides.length);
@@ -43,9 +61,10 @@ export function HeroCarousel({ slides, autoPlayMs = 5000 }: HeroCarouselProps) {
   return (
     <div
       className="hero-carousel"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      aria-live="polite"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      role="region"
+      aria-label="Hospital and healthcare images"
     >
       <div className="hero-carousel-track">
         {slides.map((slide, index) => (
@@ -54,16 +73,16 @@ export function HeroCarousel({ slides, autoPlayMs = 5000 }: HeroCarouselProps) {
             className={`hero-slide ${index === currentSlide ? "active" : ""}`}
             aria-hidden={index !== currentSlide}
           >
-            <img src={slide.src} alt={slide.alt} />
+            <Image src={slide.src} alt={slide.alt} fill sizes="100vw" preload={index === 0} style={slide.objectPosition ? { objectPosition: slide.objectPosition } : undefined} />
           </div>
         ))}
       </div>
 
-      <div className="hero-carousel-controls" aria-label="Carousel controls">
-        <button type="button" className="hero-carousel-button" onClick={showPrevious} aria-label="Previous image">
+      <div className="hero-carousel-controls" role="group" aria-label="Carousel controls">
+        <button type="button" className="hero-carousel-button" onClick={() => { pauseForInteraction(); showPrevious(); }} aria-label="Previous image">
           ←
         </button>
-        <button type="button" className="hero-carousel-button" onClick={showNext} aria-label="Next image">
+        <button type="button" className="hero-carousel-button" onClick={() => { pauseForInteraction(); showNext(); }} aria-label="Next image">
           →
         </button>
       </div>
@@ -74,7 +93,7 @@ export function HeroCarousel({ slides, autoPlayMs = 5000 }: HeroCarouselProps) {
             key={`dot-${slide.alt}-${index}`}
             type="button"
             className={`hero-carousel-dot ${index === currentSlide ? "active" : ""}`}
-            onClick={() => setCurrentSlide(index)}
+            onClick={() => { pauseForInteraction(); setCurrentSlide(index); }}
             aria-label={`Go to slide ${index + 1}`}
           />
         ))}

@@ -1,0 +1,6 @@
+.doctor-profile-card:has(.doctor-profile-avatar){grid-template-columns:160px minmax(0,1fr);align-items:start;gap:28px;padding:32px}
+.doctor-profile-avatar{position:relative;display:grid;width:160px;height:160px;flex:0 0 auto;place-items:center;overflow:hidden;border:1px solid #d8e6f1;border-radius:18px;background:#eaf3fb;color:#6c94b7}
+.doctor-profile-avatar img{display:block;width:100%;height:100%;object-fit:cover;object-position:center top}
+.doctor-profile-avatar>span{display:grid;width:100%;height:100%;place-items:center}
+.doctor-profile-card:has(.doctor-profile-avatar) .doctor-profile-content{min-width:0;padding:0}
+@media(max-width:760px){.doctor-profile-card:has(.doctor-profile-avatar){grid-template-columns:minmax(0,1fr);gap:20px;padding:24px}}

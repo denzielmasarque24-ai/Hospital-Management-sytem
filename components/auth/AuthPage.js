@@ -8,6 +8,14 @@ import { RegisterForm } from "./RegisterForm";
 export function AuthPage({ mode }) {
   const isLogin = mode === "login";
 
+  if (!isLogin) {
+    return (
+      <section className="registration-page">
+        <RegisterForm />
+      </section>
+    );
+  }
+
   return (
     <section className="auth-page">
       <div className="container">
@@ -16,11 +24,11 @@ export function AuthPage({ mode }) {
             <div className="auth-visual-inner">
               <div className="auth-brand compact">
                 <span className="auth-brand-icon">+</span>
-                <span className="auth-brand-text"><strong>MediWell</strong><span>HOSPITAL</span></span>
+                <span className="auth-brand-text"><strong>MedWell</strong><span>MEDICAL HOSPITAL</span></span>
               </div>
               <div className="auth-visual-copy">
                 <h1>Your care, connected.</h1>
-                <p>Sign in to manage your MediWell experience with care teams you can trust.</p>
+                <p>Sign in to manage your MedWell Medical Hospital account.</p>
               </div>
             </div>
           </div>

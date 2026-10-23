@@ -61,10 +61,10 @@ export default function StaffPage() {
               {staff.map((s) => (
                 <tr key={s.id}>
                   <td style={{ fontWeight: 600 }}>{s.name}</td>
-                  <td style={{ fontSize: 12, color: "#6b7280" }}>{s.email}</td>
+                  <td style={{ fontSize: 12, color: "var(--ad-muted)" }}>{s.email}</td>
                   <td><span className={`ad-badge ${roleBadge(s.role)}`}>{ROLE_LABELS[s.role]}</span></td>
                   <td><span className={`ad-badge ${s.status === "active" ? "ad-badge-green" : "ad-badge-gray"}`} style={{ textTransform: "capitalize" }}>{s.status}</span></td>
-                  <td style={{ fontSize: 12, color: "#6b7280" }}>{s.joined}</td>
+                  <td style={{ fontSize: 12, color: "var(--ad-muted)" }}>{s.joined}</td>
                   <td>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => { setSelected(s); setForm({ name: s.name, email: s.email, role: s.role, status: s.status }); setErrors({}); setModal("edit"); }}>Edit</button>

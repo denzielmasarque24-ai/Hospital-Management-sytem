@@ -1,25 +1,21 @@
-import type { Metadata } from "next";
-
+﻿import type { Metadata } from "next";
+import { UsersRound } from "lucide-react";
 import { DoctorDirectory } from "@/components/doctors/DoctorDirectory";
-import { SectionTitle } from "@/components/common/SectionTitle";
 
 export const metadata: Metadata = {
-  title: "Find a Doctor",
-  description: "Search and connect with trusted doctors at MediWell Pharma across specialties and care teams.",
+  title: "Our Doctors",
+  description: "Meet our experienced and compassionate medical specialists.",
 };
 
 export default function DoctorsPage() {
-  return (
-    <div className="container page-shell">
-      <div className="page-banner-compact">
-        <SectionTitle
-          eyebrow="Find a doctor"
-          title="Meet Our Specialists"
-          description="Consult with experienced physicians and trusted specialists tailored to your care needs."
-        />
+  return <main className="directory-page">
+    <header className="directory-hero">
+      <div className="directory-hero-inner">
+        <span className="directory-hero-icon"><UsersRound size={31} strokeWidth={1.7} aria-hidden="true"/></span>
+        <div className="directory-hero-copy"><p>OUR DOCTORS</p><h1>Our Doctors</h1><span>Meet our experienced and compassionate medical specialists.</span></div>
+        <div className="directory-hero-art" aria-hidden="true"><img src="/images/doctor.png" alt="" width={2048} height={768}/><span>+</span><i>+</i></div>
       </div>
-
-      <DoctorDirectory />
-    </div>
-  );
+    </header>
+    <DoctorDirectory/>
+  </main>;
 }

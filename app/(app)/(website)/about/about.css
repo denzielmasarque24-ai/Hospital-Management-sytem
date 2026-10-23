@@ -1,0 +1,40 @@
+﻿/* About Us only. Existing hero, navigation and hospital content are preserved. */
+.about-page .about-purpose-card { border-width: 1px; }
+.about-page .mission-icon { background: #d8f2e9; color: #009e92; }
+.about-page .vision-icon { background: #dcecfb; color: #1769c2; }
+.about-page .about-section-heading h2 { color: #123b78; }
+.about-page .about-values-section { padding-bottom: 44px; }
+.about-page .about-value-card { background: #fff; border-color: #dfeaf2; }
+.about-page .about-leadership-section { padding: 44px 0 48px; border-top: 1px solid #e5eef5; background: #f0f7fc; }
+.about-page .about-leadership-section .about-section-heading { max-width: 800px; margin-bottom: 25px; }
+.about-page .about-leadership-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; align-items: stretch; gap: 22px; }
+.about-page .about-leadership-card { display: grid; grid-template-columns: 40% minmax(0, 1fr); min-width: 0; min-height: 360px; overflow: hidden; border: 1px solid #dce8f1; border-radius: 14px; background: #fff; box-shadow: 0 6px 22px rgba(18,59,120,.055); }
+.about-page .about-leadership-portrait { position: relative; display: grid; min-width: 0; height: 100%; overflow: hidden; place-items: center; background: linear-gradient(155deg, #e8f5fb, #e3f4f0); color: #7ca4b5; }
+.about-page .about-leadership-portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.about-page .about-leadership-content { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; padding: 24px 20px; overflow-wrap: break-word; }
+.about-page .about-leadership-content h3 { color: #123b78; font-size: 17px; font-weight: 750; line-height: 1.35; }
+.about-page .about-leadership-role { margin-top: 5px; color: #008c91; font-size: 12px; font-weight: 650; line-height: 1.5; }
+.about-page .about-leadership-owner-title { display: inline-flex; align-items: center; max-width: 100%; margin-top: 9px; padding: 5px 10px; border: 1px solid #bce8e4; border-radius: 999px; background: #dff5f1; color: #007a77; font-size: 11px; font-weight: 750; line-height: 1.4; }
+.about-page .about-leadership-owner-title.is-pending { background: #edf7f7; color: #4e787b; font-size: 10px; }
+.about-page .about-leadership-divider { width: 31px; height: 2px; margin: 12px 0; background: #00a6ad; }
+.about-page .about-leadership-content ul { display: grid; gap: 10px; margin: 0 0 14px; padding: 0; list-style: none; }
+.about-page .about-leadership-content li { display: flex; align-items: flex-start; gap: 6px; color: #536d83; font-size: 12px; line-height: 1.5; }
+.about-page .about-leadership-content li svg { flex-shrink: 0; margin-top: 1px; color: #009fa5; }
+.about-page .about-leadership-content p { margin: 0; color: #6b7f91; font-size: 13px; line-height: 1.65; }
+.about-page .about-leadership-status { margin-bottom: 9px; color: #627f92; font-size: 9px; font-weight: 750; letter-spacing: .07em; }
+.about-page .about-why-copy li > span { color: #009f99; background: #e7f7f3; }
+.about-page .about-facility-card { border-color: #dce8f1; }
+@media (max-width: 1200px) {
+  .about-page .about-leadership-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .about-page .about-leadership-card { grid-template-columns: minmax(0, 1fr); grid-template-rows: 280px auto; min-height: 0; }
+}
+@media (max-width: 680px) {
+  .about-page .about-leadership-section { padding: 32px 0 36px; }
+  .about-page .about-leadership-grid { grid-template-columns: minmax(0, 1fr); gap: 13px; }
+  .about-page .about-leadership-card { grid-template-columns: minmax(0, 1fr); grid-template-rows: 280px auto; min-height: 0; }
+  .about-page .about-leadership-content { padding: 22px; }
+  .about-page .about-leadership-content h3 { font-size: 16px; }
+}
+.about-page .about-leadership-sample { padding: 5px 7px; border: 1px solid #d8e9ed; border-radius: 6px; background: #f0f8fa; color: #476c7c; font-size: 9px; line-height: 1.5; letter-spacing: 0; }

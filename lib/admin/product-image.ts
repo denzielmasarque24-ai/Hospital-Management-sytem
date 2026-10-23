@@ -37,6 +37,13 @@ export async function uploadProductImage(file: File): Promise<UploadedProductIma
     .from(PRODUCT_IMAGE_BUCKET)
     .upload(path, file, { cacheControl: "3600", contentType, upsert: false });
   if (error) {
+    console.error("Product image upload failed:", {
+      code: error.statusCode,
+      message: error.message,
+      details: null,
+      hint: null,
+      status: error.status,
+    });
     const message = error.message.toLowerCase();
     if (message.includes("bucket not found")) {
       throw new Error("Image upload failed: the product-images bucket is missing. Run supabase/setup/product_images_storage.sql.");
@@ -54,5 +61,14 @@ export async function uploadProductImage(file: File): Promise<UploadedProductIma
 export async function removeUploadedProductImage(path: string): Promise<void> {
   if (!supabase) return;
   const { error } = await supabase.storage.from(PRODUCT_IMAGE_BUCKET).remove([path]);
-  if (error) throw new Error(`Uploaded image cleanup failed: ${error.message}`);
+  if (error) {
+    console.error("Uploaded product image cleanup failed:", {
+      code: error.statusCode,
+      message: error.message,
+      details: null,
+      hint: null,
+      status: error.status,
+    });
+    throw new Error(`Uploaded image cleanup failed: ${error.message}`);
+  }
 }

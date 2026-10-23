@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase/client";
+import { markConversationMessagesRead } from "@/lib/supabase/chatReadReceipts";
 
 const loginEventName = "mediwell:open-login";
 
@@ -11,6 +12,56 @@ function formatTime(value) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function logMessagingError(action, error, context = {}) {
+  const candidates = [
+    error,
+    error && typeof error === "object" ? error.error : undefined,
+    error && typeof error === "object" ? error.cause : undefined,
+    error && typeof error === "object" ? error.context : undefined,
+    error && typeof error === "object" ? error.response : undefined,
+  ].filter((value) => value && typeof value === "object");
+  const read = (key) => candidates.map((candidate) => {
+    try { return candidate[key]; } catch { return undefined; }
+  }).find((value) => value !== undefined && value !== null && value !== "");
+  const name = read("name");
+  const code = read("code");
+  const message = read("message");
+  const details = read("details");
+  const hint = read("hint");
+  const status = read("status");
+  const statusText = read("statusText");
+  const fallback = error === undefined ? "Thrown value was undefined" : error === null ? "Thrown value was null" : String(error);
+
+  console.error(`[MessagePage] Failed to ${action}`, {
+    errorType: error === null ? "null" : typeof error,
+    name: typeof name === "string" ? name : error instanceof Error ? error.name : undefined,
+    code: typeof code === "string" ? code : undefined,
+    message: typeof message === "string" ? message : error instanceof Error && error.message ? error.message : fallback,
+    details: typeof details === "string" ? details : undefined,
+    hint: typeof hint === "string" ? hint : undefined,
+    status: typeof status === "number" ? status : undefined,
+    statusText: typeof statusText === "string" ? statusText : undefined,
+    ...context,
+  });
+}
+
+function getSendErrorMessage(error) {
+  const code = [error, error?.error, error?.cause, error?.context, error?.response]
+    .find((candidate) => candidate && typeof candidate.code === "string")?.code;
+  if (code === "42501") return "Your account is not allowed to send messages in this conversation.";
+  if (code === "23514") return "Your message could not be saved. Please check its length and try again.";
+  if (code === "23503") return "This conversation is no longer available. Refresh the page and try again.";
+  if (code === "AUTH_SESSION_MISSING") return "Your sign-in has expired. Please log in again to send a message.";
+  if (code === "MESSAGE_CONVERSATION_FORBIDDEN") return "You don't have access to this conversation. Refresh the page and try again.";
+  if (error && typeof error === "object" && (error.status === 401 || error.status === 403)) {
+    return "Your session does not have permission to send this message. Please log in again or contact support.";
+  }
+  if (error instanceof TypeError && /fetch|network/i.test(error.message)) {
+    return "We couldn't connect to the messaging service. Check your connection and try again.";
+  }
+  return "Your message couldn't be saved. Please check your connection and try again.";
 }
 
 export default function MessagePage() {
@@ -27,6 +78,7 @@ export default function MessagePage() {
   const [isSending, setIsSending] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [sendError, setSendError] = useState("");
+  const [sendSuccess, setSendSuccess] = useState("");
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -50,20 +102,6 @@ export default function MessagePage() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active) applySession(session);
-    });
-
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (!active) return;
-      if (error) {
-        setAuthStatus("error");
-        setLoadError("We couldn't verify your account. Refresh the page and try again.");
-        return;
-      }
-      applySession({ user: data.user });
-    }).catch(() => {
-      if (!active) return;
-      setAuthStatus("error");
-      setLoadError("We couldn't verify your account. Refresh the page and try again.");
     });
 
     return () => {
@@ -109,12 +147,15 @@ export default function MessagePage() {
 
       if (!active) return;
       if (result.error) {
+        logMessagingError("load conversations", result.error);
         setLoadError("Your conversations couldn't be loaded. Confirm the messaging database is set up and try again.");
       } else {
         const rows = isStaff ? result.data ?? [] : result.data ? [result.data] : [];
         setConversations(rows);
         setConversationId((current) => {
           if (current && rows.some((conversation) => conversation.id === current)) return current;
+          const requestedId = new URLSearchParams(window.location.search).get("conversation");
+          if (requestedId && rows.some((conversation) => conversation.id === requestedId)) return requestedId;
           return isStaff ? rows[0]?.id ?? "" : rows[0]?.id ?? "";
         });
         setLoadError("");
@@ -144,16 +185,18 @@ export default function MessagePage() {
       if (showLoading) setIsLoadingMessages(true);
       const { data, error } = await supabase
         .from("messages")
-        .select("id, conversation_id, sender_id, sender_role, message, created_at, read_at")
+        .select("id, conversation_id, sender_id, sender_role, message, created_at")
         .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true });
 
       if (!active) return;
       if (error) {
+        logMessagingError("load messages", error);
         setLoadError("Messages couldn't be loaded. Confirm the messaging database is set up and try again.");
       } else {
         setMessages(data ?? []);
         setLoadError("");
+        if (!isStaff) void markConversationMessagesRead(conversationId, "patient");
       }
       if (showLoading) setIsLoadingMessages(false);
     };
@@ -200,10 +243,36 @@ export default function MessagePage() {
 
     setIsSending(true);
     setSendError("");
+    setSendSuccess("");
+    let action = "validate session";
+    let sendContext = {};
     try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session) {
+        throw Object.assign(new Error("A valid signed-in session is required to send a message."), { code: "AUTH_SESSION_MISSING" });
+      }
+      const { data: sessionData, error: userError } = await supabase.auth.getUser();
+      if (userError?.name === "AuthSessionMissingError") {
+        throw Object.assign(new Error("A valid signed-in session is required to send a message."), { code: "AUTH_SESSION_MISSING" });
+      }
+      if (userError) throw userError;
+      if (!sessionData.user || sessionData.user.id !== user.id) {
+        throw Object.assign(new Error("A valid signed-in session is required to send a message."), { code: "AUTH_SESSION_MISSING" });
+      }
+      const authenticatedUserId = sessionData.user.id;
+
+      action = "verify messaging permissions";
+      const { data: staffAccess, error: staffAccessError } = await supabase.rpc("is_hospital_staff");
+      if (staffAccessError) throw staffAccessError;
+      const senderRole = staffAccess === true ? "staff" : "patient";
+      sendContext = { senderRole, conversationAccessible: false };
+
       let activeConversationId = conversationId;
-      if (!activeConversationId && !isStaff) {
+      if (!activeConversationId && senderRole === "patient") {
+        action = "create or find patient conversation";
         const conversation = await startConversation();
+        if (!conversation?.id) throw new Error("Supabase returned no patient conversation record.");
         activeConversationId = conversation.id;
         setConversationId(conversation.id);
         setConversations((current) => [conversation, ...current]);
@@ -214,22 +283,40 @@ export default function MessagePage() {
         return;
       }
 
+      action = "verify conversation access";
+      const { data: authorizedConversation, error: conversationAccessError } = await supabase
+        .from("conversations")
+        .select("id, patient_id")
+        .eq("id", activeConversationId)
+        .maybeSingle();
+      if (conversationAccessError) throw conversationAccessError;
+      const patientOwnsConversation = authorizedConversation?.patient_id === authenticatedUserId;
+      if (!authorizedConversation || (senderRole === "patient" && !patientOwnsConversation)) {
+        throw Object.assign(new Error("The selected conversation is not available to this account."), { code: "MESSAGE_CONVERSATION_FORBIDDEN" });
+      }
+      sendContext = { senderRole, conversationAccessible: true, patientOwnsConversation };
+
+      action = "insert message";
       const { data, error } = await supabase
         .from("messages")
         .insert({
           conversation_id: activeConversationId,
-          sender_id: user.id,
-          sender_role: isStaff ? "staff" : "patient",
+          sender_id: authenticatedUserId,
+          sender_role: senderRole === "staff" ? "STAFF" : "PATIENT",
           message: messageText,
         })
-        .select("id, conversation_id, sender_id, sender_role, message, created_at, read_at")
+        .select("id, conversation_id, sender_id, sender_role, message, created_at")
         .single();
 
       if (error) throw error;
+      if (!data?.id) throw new Error("Supabase returned no saved message record.");
       setMessages((current) => [...current, data]);
       setDraft("");
-    } catch {
-      setSendError("Your message couldn't be saved. Please check your connection and try again.");
+      window.dispatchEvent(new Event("mediwell:chat-updated"));
+      setSendSuccess("Message sent successfully.");
+    } catch (error) {
+      logMessagingError(action, error, sendContext);
+      setSendError(getSendErrorMessage(error));
     } finally {
       setIsSending(false);
     }
@@ -254,7 +341,7 @@ export default function MessagePage() {
         <>
           {!isStaff && (
             <div className="chat-message hospital-message">
-              <p>Hello! Welcome to MediWell Hospital. How can we help you today?</p>
+              <p>Hello! Welcome to MedWell Medical Hospital. How can we help you today?</p>
               <time>{formatTime(new Date())}</time>
             </div>
           )}
@@ -267,14 +354,14 @@ export default function MessagePage() {
 
     return messages.map((message) => {
       const isOwnMessage = message.sender_id === user?.id;
-      const isHospitalMessage = message.sender_role === "staff";
+      const isHospitalMessage = message.sender_role?.toUpperCase() === "STAFF";
       return (
         <div
           className={`chat-message ${isOwnMessage ? "own-message" : "hospital-message"}`}
           key={message.id}
         >
           <span className="message-sender">
-            {isHospitalMessage ? "MediWell Hospital" : isStaff ? "Patient" : "You"}
+            {isHospitalMessage ? "MedWell Medical Hospital" : isStaff ? "Patient" : "You"}
           </span>
           <p>{message.message}</p>
           <time dateTime={message.created_at}>{formatTime(message.created_at)}</time>
@@ -286,17 +373,11 @@ export default function MessagePage() {
   return (
     <section className="message-page">
       <div className="message-page-inner">
-        <div className="message-page-heading">
-          <p className="message-eyebrow">Patient support</p>
-          <h1>Send Us a Message</h1>
-          <p>Have a question or need assistance? Send us a message, and our team will get back to you.</p>
-        </div>
-
-        <section className="message-panel" aria-label="MediWell Hospital messaging">
+        <section className="message-panel" aria-label="MedWell Medical Hospital messaging">
           <header className="message-panel-header">
             <span className="message-hospital-icon" aria-hidden="true">+</span>
             <div className="message-hospital-copy">
-              <h2>MediWell Hospital</h2>
+              <h2>MedWell Medical Hospital</h2>
               <p><span className="online-indicator" />We typically reply within a few hours</p>
             </div>
           </header>
@@ -347,7 +428,10 @@ export default function MessagePage() {
               <form className="message-composer" onSubmit={handleSend}>
                 <textarea
                   value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    setSendSuccess("");
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
@@ -371,6 +455,7 @@ export default function MessagePage() {
               </form>
             ) : null}
             {sendError ? <p className="message-error" role="alert">{sendError}</p> : null}
+            {sendSuccess ? <p className="message-success" role="status">{sendSuccess}</p> : null}
             {authStatus === "signed-in" ? (
               <p className="message-composer-note">Shift + Enter for a new line</p>
             ) : null}

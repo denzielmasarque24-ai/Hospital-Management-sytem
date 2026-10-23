@@ -5,23 +5,26 @@ type NewsCardProps = {
   title: string;
   date: string;
   image: string;
-  href?: string;
+  imageAlt?: string;
+  href: string;
 };
 
-export function NewsCard({ category, title, date, image, href = "/news" }: NewsCardProps) {
+export function NewsCard({ category, title, date, image, imageAlt = title, href }: NewsCardProps) {
   return (
-    <article className="news-card">
-      <div className="news-image-wrap">
-        <img src={image} alt={title} className="news-image" />
-      </div>
-      <div className="news-content">
-        <span className="news-category">{category}</span>
-        <h3>{title}</h3>
-        <div className="news-meta">
-          <span>{date}</span>
-          <Link href={href}>Read More</Link>
+    <Link href={href} className="news-card news-card-link" aria-label={`Read ${title}`}>
+      <article className="news-preview">
+        <div className="news-image-wrap">
+          <img src={image} alt={imageAlt} className="news-image" />
         </div>
-      </div>
-    </article>
+        <div className="news-content">
+          <span className="news-category">{category}</span>
+          <h3>{title}</h3>
+          <div className="news-meta">
+            <time>{date}</time>
+            <span className="news-read-more">Read More</span>
+          </div>
+        </div>
+      </article>
+    </Link>
   );
 }

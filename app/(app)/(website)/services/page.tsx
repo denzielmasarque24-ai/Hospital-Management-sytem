@@ -1,15 +1,34 @@
 import type { Metadata } from "next";
-import { SectionTitle } from "@/components/common/SectionTitle";
-import { ServicesListing } from "@/components/services/ServicesListing";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import { ServicesDirectory } from "@/components/services/ServicesDirectory";
 
 export const metadata: Metadata = {
-  title: "MediWell Healthcare Services",
-  description: "Explore MediWell Pharma healthcare services including pharmacy, diagnostics, cardiology, pediatrics, and preventive care.",
+  title: "Services & Facilities | MedWell Medical Hospital",
+  description: "Browse healthcare services listed by MedWell Medical Hospital.",
 };
 
 export default function ServicesPage() {
-  return <div className="container page-shell">
-    <div className="page-banner-compact"><SectionTitle eyebrow="Our healthcare services" title="Our Healthcare Services" description="Comprehensive healthcare solutions for you and your family." /></div>
-    <ServicesListing />
-  </div>;
+  return <main className="services-directory-page services-facilities-page">
+    <div className="container">
+      <nav className="services-directory-breadcrumbs" aria-label="Breadcrumb">
+        <Link href="/">Home</Link><ChevronRight size={14} aria-hidden="true" /><span aria-current="page">Services &amp; Facilities</span>
+      </nav>
+      <header className="services-directory-header">
+        <span className="services-directory-eyebrow">MEDWELL MEDICAL HOSPITAL</span>
+        <h1>Services &amp; Facilities</h1>
+        <p>Explore the services currently listed by MedWell Medical Hospital. Select a service to view its details.</p>
+      </header>
+      <section className="services-directory-section" aria-labelledby="services-directory-title">
+        <div className="services-directory-intro">
+          <div>
+            <span className="services-directory-eyebrow">OUR SERVICES</span>
+            <h2 id="services-directory-title">What We Offer</h2>
+            <p>Browse confirmed hospital services and select a listing for details or inquiries.</p>
+          </div>
+        </div>
+        <ServicesDirectory section="services_facilities" />
+      </section>
+    </div>
+  </main>;
 }

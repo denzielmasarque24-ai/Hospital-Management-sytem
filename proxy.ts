@@ -34,13 +34,43 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
   const supabase = createMiddlewareClient(request, response);
   // getUser() validates the JWT with Supabase â€” cannot be spoofed by editing cookies
-  const { data: { user } } = await supabase.auth.getUser();
+  // A normal signed-out visit has no session. Check first so public login
+  // pages do not validate a user when there is no session to validate.
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  let authUnavailable = false;
+  if (sessionError && sessionError.name !== "AuthSessionMissingError") {
+    console.error("[AuthProxy] Could not restore the auth session", {
+      operation: "auth.getSession",
+      name: sessionError.name,
+      code: sessionError.code,
+      message: sessionError.message,
+      status: sessionError.status,
+    });
+    authUnavailable = sessionError.name === "AuthRetryableFetchError" || /network|fetch|timeout/i.test(sessionError.message);
+  }
+  let user = null;
+  if (session && !sessionError) {
+    // Validate the cookie JWT with Supabase before using it for access checks.
+    const { data, error } = await supabase.auth.getUser();
+    if (error && error.name !== "AuthSessionMissingError") {
+      console.error("[AuthProxy] Could not validate the session user", {
+        operation: "auth.getUser",
+        name: error.name,
+        code: error.code,
+        message: error.message,
+        status: error.status,
+      });
+      authUnavailable = error.name === "AuthRetryableFetchError" || /network|fetch|timeout/i.test(error.message);
+    }
+    user = data.user;
+  }
 
   if (!user && isProtectedRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     // Preserve the intended destination so we can redirect back after login
     loginUrl.searchParams.set("next", pathname);
+    if (authUnavailable) loginUrl.searchParams.set("message", "We couldn't verify your session because the authentication service is temporarily unavailable. Please retry.");
     return NextResponse.redirect(loginUrl);
   }
 
@@ -69,7 +99,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Route authenticated users by the role stored in their public profile.
-  if (user && isPublicRoute) {
+  if (user?.email_confirmed_at && isPublicRoute) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -80,7 +110,7 @@ export async function proxy(request: NextRequest) {
     if (!roleHome) return response;
 
     const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = roleHome;
+    homeUrl.pathname = roleHome === "/" ? "/patient/profile" : roleHome;
     homeUrl.search = "";
     return NextResponse.redirect(homeUrl);
   }

@@ -6,30 +6,30 @@ const faqItems = [
   {
     question: "How do I book an appointment?",
     answer:
-      "You can book an appointment through the Book Appointment page, by phone, or at our front desk during business hours.",
+      "Sign in and submit a request through the Book Appointment page. The request is not confirmed until the hospital contacts you.",
   },
   {
     question: "How can I find a doctor?",
     answer:
-      "Visit the Find a Doctor page to search by specialty, view professional profiles, and book consultations online.",
+      "Visit the Find a Doctor page to browse profiles currently published by the hospital. Contact the hospital to confirm availability.",
   },
   {
-    question: "How can I order medicines?",
+    question: "How can I find medical products?",
     answer:
-      "Use the Pharmacy section to browse products and place a prescription or over-the-counter order through our online pharmacy services.",
+      "Browse items currently listed in the Medical Products & Supplies catalog. Contact the hospital to confirm availability and suitability; online ordering is not currently provided.",
   },
   {
     question: "How can I book a lab test?",
     answer:
-      "Go to the Lab Tests section, select the diagnostic service you need, and choose a convenient time slot.",
+      "Review the services listed by the hospital, then submit an appointment request. The hospital will contact you to confirm the details.",
   },
   {
     question: "What are your emergency hours?",
     answer:
-      "Our emergency services are available 24/7, including weekends and public holidays.",
+      "Emergency contact details and operating hours have not yet been provided. For an immediate emergency, call your local emergency services.",
   },
   {
-    question: "How can I message MediWell Hospital?",
+    question: "How can I message MedWell Medical Hospital?",
     answer:
       "Log in and use the Message page to send a private message to our care team.",
   },

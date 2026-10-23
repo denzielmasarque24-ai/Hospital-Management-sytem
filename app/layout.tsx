@@ -14,11 +14,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "MediWell Pharma",
-    template: "%s | MediWell Pharma",
+    default: "MedWell Medical Hospital",
+    template: "%s | MedWell Medical Hospital",
   },
   description:
-    "MediWell Pharma delivers modern healthcare, trusted medicines, specialist doctors, and world-class patient care.",
+    "MedWell Medical Hospital provides patient-centered care. Explore our configured services, doctors, and appointment options.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

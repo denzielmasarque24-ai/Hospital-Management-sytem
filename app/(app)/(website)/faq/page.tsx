@@ -5,7 +5,7 @@ import { SectionTitle } from "@/components/common/SectionTitle";
 
 export const metadata: Metadata = {
   title: "Frequently Asked Questions",
-  description: "Read answers to common MediWell Pharma questions about appointments, doctors, pharmacy, and support.",
+  description: "Read answers to common patient questions about appointments, doctors, hospital services, and support.",
 };
 
 export default function FaqPage() {

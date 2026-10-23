@@ -23,19 +23,15 @@ export type Service = {
   short_description: string;
   description: string;
   image_url: string | null;
-  icon: string | null;
-  price: number;
-  available: boolean;
-  benefits: string[];
-  treatments: string[];
-  related_specializations: string[];
-  faqs: { question: string; answer: string }[];
-  created_at: string;
-  updated_at: string;
+  section: "clinical_departments" | "services_facilities";
+  benefits?: string[];
+  treatments?: string[];
+  related_specializations?: string[];
+  faqs?: { question: string; answer: string }[];
 };
 
 export type CareerInput = Pick<Career, "title" | "department" | "location" | "employment_type" | "description">;
-export type ServiceInput = Pick<Service, "name" | "slug" | "short_description" | "description" | "image_url" | "available">;
+export type ServiceInput = Pick<Service, "name" | "slug" | "short_description" | "description" | "image_url" | "section">;
 
 function client() {
   if (!supabase) throw new Error("Supabase is not configured.");
@@ -101,60 +97,57 @@ export async function deleteCareer(id: string) {
   if (error) throw error;
 }
 
-export async function listServices(publishedOnly = false) {
-  const { data, error } = await client().from("services").select("*").order("name");
+export async function listServices() {
+  const { data, error } = await client().from("services")
+    .select("id,name,slug,description,short_description,image_url,section")
+    .order("name");
   if (error) {
     console.error("Services fetch failed:", error);
     throw error;
   }
-  const services = (data ?? []).map((record) => {
+  return (data ?? []).map((record) => {
     const row = record as Record<string, unknown>;
+    if (row.section !== "clinical_departments" && row.section !== "services_facilities") {
+      throw new Error(`Service ${String(row.slug ?? row.id ?? "record")} has an unsupported section value.`);
+    }
     return {
-      ...row,
       id: String(row.id ?? ""),
       name: String(row.name ?? ""),
       slug: String(row.slug ?? ""),
       description: String(row.description ?? ""),
       short_description: String(row.short_description ?? row.description ?? ""),
       image_url: typeof row.image_url === "string" ? row.image_url : null,
-      icon: typeof row.icon === "string" ? row.icon : null,
-      price: Number(row.price ?? 0),
-      available: Boolean(row.available ?? row.is_published ?? true),
-      benefits: Array.isArray(row.benefits) ? row.benefits as string[] : [],
-      treatments: Array.isArray(row.treatments) ? row.treatments as string[] : [],
-      related_specializations: Array.isArray(row.related_specializations) ? row.related_specializations as string[] : [],
-      faqs: Array.isArray(row.faqs) ? row.faqs as { question: string; answer: string }[] : [],
-      created_at: String(row.created_at ?? ""),
-      updated_at: String(row.updated_at ?? ""),
+      section: row.section,
     } as Service;
   });
-  return publishedOnly ? services.filter((service) => service.available) : services;
 }
 
 export async function saveService(input: ServiceInput, id?: string) {
   const db = client();
-  const saveWithStatus = (statusKey: "available" | "is_published") => {
-    const payload = { ...input, [statusKey]: input.available };
-    delete (payload as Partial<typeof payload>).available;
-    return id
-      ? db.from("services").update(payload).eq("id", id).select("*").single()
-      : db.from("services").insert(payload).select("*").single();
-  };
-  let result = await saveWithStatus("available");
-  if (result.error?.code === "42703" && /available/i.test(result.error.message)) {
-    result = await saveWithStatus("is_published");
+  if (input.section !== "clinical_departments" && input.section !== "services_facilities") {
+    throw new Error("Choose either Clinical Departments or Services & Facilities for this service.");
   }
+  const payload = {
+    name: input.name.trim(),
+    slug: input.slug.trim(),
+    short_description: input.short_description.trim(),
+    description: input.description.trim(),
+    image_url: input.image_url,
+    section: input.section,
+  };
+  const result = id
+    ? await db.from("services").update(payload).eq("id", id).select("id,name,slug,description,short_description,image_url,section").single()
+    : await db.from("services").insert(payload).select("id,name,slug,description,short_description,image_url,section").single();
   if (result.error) throw result.error;
   const row = result.data as Record<string, unknown>;
   return {
-    ...row,
-    available: Boolean(row.available ?? row.is_published ?? input.available),
+    id: String(row.id ?? ""),
+    name: String(row.name ?? input.name),
+    slug: String(row.slug ?? input.slug),
+    description: String(row.description ?? input.description),
     short_description: String(row.short_description ?? row.description ?? input.short_description),
     image_url: typeof row.image_url === "string" ? row.image_url : input.image_url,
-    benefits: Array.isArray(row.benefits) ? row.benefits : [],
-    treatments: Array.isArray(row.treatments) ? row.treatments : [],
-    related_specializations: Array.isArray(row.related_specializations) ? row.related_specializations : [],
-    faqs: Array.isArray(row.faqs) ? row.faqs : [],
+    section: String(row.section ?? input.section) as Service["section"],
   } as Service;
 }
 

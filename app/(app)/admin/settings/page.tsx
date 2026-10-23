@@ -6,9 +6,9 @@ import { supabase } from "@/lib/supabase/client";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState({
-    siteName: "MediWell Pharma",
-    siteEmail: "info@mediwell.com",
-    phone: "+1 234 567 8900",
+    siteName: "MedWell Medical Hospital",
+    siteEmail: "",
+    phone: "",
     address: "",
     operatingHours: "",
     currency: "PHP",
@@ -45,10 +45,10 @@ export default function SettingsPage() {
           <div className="ad-card-body">
             <div className="ad-form">
               <div className="ad-form-row"><label className="ad-label">Site Name</label><input className="ad-input" value={settings.siteName} onChange={(e) => setSettings({ ...settings, siteName: e.target.value })} /></div>
-              <div className="ad-form-row"><label className="ad-label">Contact Email</label><input className="ad-input" type="email" value={settings.siteEmail} onChange={(e) => setSettings({ ...settings, siteEmail: e.target.value })} /></div>
-              <div className="ad-form-row"><label className="ad-label">Phone</label><input className="ad-input" value={settings.phone} onChange={(e) => setSettings({ ...settings, phone: e.target.value })} /></div>
-              <div className="ad-form-row"><label className="ad-label">Hospital Address</label><input className="ad-input" value={settings.address} onChange={(e) => setSettings({ ...settings, address: e.target.value })} /></div>
-              <div className="ad-form-row"><label className="ad-label">Operating Hours</label><input className="ad-input" value={settings.operatingHours} onChange={(e) => setSettings({ ...settings, operatingHours: e.target.value })} /></div>
+              <div className="ad-form-row"><label className="ad-label">Contact Email</label><input className="ad-input" type="email" placeholder="Not configured" value={settings.siteEmail} onChange={(e) => setSettings({ ...settings, siteEmail: e.target.value })} /></div>
+              <div className="ad-form-row"><label className="ad-label">Phone</label><input className="ad-input" placeholder="Not configured" value={settings.phone} onChange={(e) => setSettings({ ...settings, phone: e.target.value })} /></div>
+              <div className="ad-form-row"><label className="ad-label">Hospital Address</label><input className="ad-input" placeholder="Not configured" value={settings.address} onChange={(e) => setSettings({ ...settings, address: e.target.value })} /></div>
+              <div className="ad-form-row"><label className="ad-label">Operating Hours</label><input className="ad-input" placeholder="Not configured" value={settings.operatingHours} onChange={(e) => setSettings({ ...settings, operatingHours: e.target.value })} /></div>
               <div className="ad-form-row">
                 <label className="ad-label">Currency</label>
                 <select className="ad-select" value={settings.currency} onChange={(e) => setSettings({ ...settings, currency: e.target.value })}>
@@ -75,7 +75,7 @@ export default function SettingsPage() {
                 ].map(({ key, label }) => (
                   <label key={key} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                     <input type="checkbox" checked={settings[key]} onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })} />
-                    <span style={{ fontSize: 13, color: "#374151" }}>{label}</span>
+                    <span style={{ fontSize: 13, color: "var(--ad-text)" }}>{label}</span>
                   </label>
                 ))}
               </div>

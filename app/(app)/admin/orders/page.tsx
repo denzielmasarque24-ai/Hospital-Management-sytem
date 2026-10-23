@@ -87,9 +87,9 @@ export default function OrdersPage() {
                   <td style={{ fontWeight: 700 }}>{o.id}</td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{o.customer}</div>
-                    <div style={{ fontSize: 11, color: "#6b7280" }}>{o.email}</div>
+                    <div style={{ fontSize: 11, color: "var(--ad-muted)" }}>{o.email}</div>
                   </td>
-                  <td style={{ fontSize: 12, color: "#6b7280" }}>{o.date}</td>
+                  <td style={{ fontSize: 12, color: "var(--ad-muted)" }}>{o.date}</td>
                   <td>{o.items}</td>
                   <td style={{ fontWeight: 700 }}>{formatPhp(o.total)}</td>
                   <td><span className={`ad-badge ${paymentBadge(o.payment)}`} style={{ textTransform: "capitalize" }}>{o.payment}</span></td>
@@ -124,9 +124,9 @@ export default function OrdersPage() {
                 ["Date", viewOrder.date], ["Items", viewOrder.items], ["Total", formatPhp(viewOrder.total)],
                 ["Payment", viewOrder.payment], ["Status", viewOrder.status],
               ].map(([k, v]) => (
-                <div key={String(k)} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid #f3f4f6" }}>
-                  <span style={{ width: 100, fontSize: 12, fontWeight: 700, color: "#6b7280", flexShrink: 0 }}>{k}</span>
-                  <span style={{ fontSize: 13, color: "#111827", textTransform: "capitalize" }}>{String(v)}</span>
+                <div key={String(k)} style={{ display: "flex", gap: 12, padding: "8px 0", borderBottom: "1px solid var(--ad-border)" }}>
+                  <span style={{ width: 100, fontSize: 12, fontWeight: 700, color: "var(--ad-muted)", flexShrink: 0 }}>{k}</span>
+                  <span style={{ fontSize: 13, color: "var(--ad-text)", textTransform: "capitalize" }}>{String(v)}</span>
                 </div>
               ))}
             </div>
@@ -146,7 +146,7 @@ export default function OrdersPage() {
               <button type="button" className="ad-btn ad-btn-ghost ad-btn-sm ad-btn-icon" onClick={() => setUpdateOrder(null)}>✕</button>
             </div>
             <div className="ad-modal-body">
-              <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>Order: <strong>{updateOrder.id}</strong></p>
+              <p style={{ fontSize: 13, color: "var(--ad-muted)", marginBottom: 14 }}>Order: <strong>{updateOrder.id}</strong></p>
               <div className="ad-form-row">
                 <label className="ad-label">New Status</label>
                 <select className="ad-select" value={newStatus} onChange={(e) => setNewStatus(e.target.value as Order["status"])}>

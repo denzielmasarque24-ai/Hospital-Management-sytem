@@ -9,7 +9,7 @@ type AppointmentCTAProps = {
 
 export function AppointmentCTA({
   title = "Ready to Start Your Care Journey?",
-  description = "Connect with our specialists and book an appointment today.",
+  description = "Review available services and submit an appointment request. The hospital team will contact you to confirm details.",
   buttonLabel = "Book Appointment",
   href = "/appointment",
 }: AppointmentCTAProps) {
@@ -17,7 +17,7 @@ export function AppointmentCTA({
     <section className="appointment-cta-wrap">
       <div className="container appointment-cta">
         <div>
-          <span className="section-eyebrow light">Trusted care</span>
+          <span className="section-eyebrow light">Appointment requests</span>
           <h2>{title}</h2>
         </div>
         <p>{description}</p>

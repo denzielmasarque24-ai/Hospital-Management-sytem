@@ -149,7 +149,7 @@ export function AdminShell({ title, children, adminOnly = false, patientAccessOn
       });
     });
     return () => { active = false; subscription.unsubscribe(); };
-  }, [router, adminOnly]);
+  }, [router, adminOnly, patientAccessOnly]);
 
   if (checking) {
     return (

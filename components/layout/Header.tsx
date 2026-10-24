@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ChevronDown,
   ClipboardList,
+  FlaskConical,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -41,13 +42,13 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
   const [mobileOpen, setMobileOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
   const [patientGuideOpen, setPatientGuideOpen] = useState(false);
-  const [expandedServicesGroup, setExpandedServicesGroup] = useState<string | null>(null);
   const [mobileServicesExpanded, setMobileServicesExpanded] = useState(false);
   const [authOpen, setAuthOpen] = useState(initialAuthOpen);
   const [authMode, setAuthMode] = useState("login");
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState("");
   const [userRoleError, setUserRoleError] = useState("");
+  const [clinicalModules,setClinicalModules] = useState<string[]>([]);
   const [accountOpen, setAccountOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -83,6 +84,7 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
       setUser(nextUser);
       setAccountOpen(false);
       setUserRole("");
+      setClinicalModules([]);
       setUserRoleError("");
       if (!nextUser) {
         return;
@@ -101,6 +103,10 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
           setUserRoleError(error.message);
         }
       }
+      if (!error && String(data?.role ?? '').toUpperCase() !== 'PATIENT') {
+        const permissions = await Promise.all(['medical','lab'].map(kind=>client.rpc('clinical_permission',{p_kind:kind,p_release:false})));
+        if(active && requestId === roleRequestRef.current)setClinicalModules(['medical','lab'].filter((_,index)=>!permissions[index].error&&permissions[index].data===true));
+      }
     };
     const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
       queueMicrotask(() => {
@@ -117,7 +123,6 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
       if (!notificationsRef.current?.contains(event.target as Node)) setNotificationsOpen(false);
       if (!servicesRef.current?.contains(event.target as Node)) {
         setServicesOpen(false);
-        setExpandedServicesGroup(null);
       }
       if (!patientGuideRef.current?.contains(event.target as Node)) setPatientGuideOpen(false);
     };
@@ -129,7 +134,6 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
         setMobileServicesExpanded(false);
         setServicesOpen(false);
         setPatientGuideOpen(false);
-        setExpandedServicesGroup(null);
       }
     };
     document.addEventListener("pointerdown", closeOnOutsideClick);
@@ -140,19 +144,13 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
     };
   }, [accountOpen, notificationsOpen, mobileOpen, servicesOpen, patientGuideOpen]);
 
-  useEffect(() => { setAccountOpen(false); setNotificationsOpen(false); setMobileOpen(false); setServicesOpen(false); setPatientGuideOpen(false); setExpandedServicesGroup(null); setMobileServicesExpanded(false); }, [pathname]);
+  useEffect(() => { setAccountOpen(false); setNotificationsOpen(false); setMobileOpen(false); setServicesOpen(false); setPatientGuideOpen(false); setMobileServicesExpanded(false); }, [pathname]);
 
-  const toggleServicesGroup = (group: string) => setExpandedServicesGroup((current) => current === group ? null : group);
-  const servicesMenu: { label: string; href: string; children?: { href: string; label: string }[] }[] = [
+  const servicesMenu: { label: string; href: string }[] = [
     { label: "Services & Facilities", href: "/services" },
     { label: "Clinical Departments", href: "/clinical-departments" },
     { label: "Our Doctors", href: "/doctors" },
     { label: "Patient Room Rates", href: "/room-rates" },
-    { label: "Offers & Price Lists", href: "/health-packages", children: [
-      { href: "/health-packages", label: "Health Packages" },
-      { href: "/lab-tests", label: "Laboratory Tests & Prices" },
-      { href: "/products", label: "Pharmacy Products" },
-    ] },
   ];
 
   const isAdmin = ["ADMIN", "SUPER_ADMIN", "INVENTORY_MANAGER", "SALES_STAFF"].includes(userRole);
@@ -160,6 +158,7 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
     { href: "/patient/profile", label: "My Profile", Icon: UserRound },
     { href: "/patient/appointments", label: "My Appointments", Icon: CalendarDays },
     { href: "/patient/medical-history", label: "My Medical History", Icon: ClipboardList },
+    { href: "/patient/laboratory-results", label: "My Laboratory Results", Icon: FlaskConical },
     { href: "/patient/assigned-doctor", label: "My Assigned Doctor", Icon: Stethoscope },
     { href: "/patient/admissions", label: "My Admissions", Icon: ClipboardList },
     { href: "/patient/room-information", label: "My Room Information", Icon: BedDouble },
@@ -167,6 +166,7 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
     { href: "/patient/medical-supplies", label: "Medical Supplies & Charges", Icon: Pill },
     { label: "Logout", Icon: LogOut, action: "logout" as const },
   ];
+  const clinicalAccountItems = clinicalModules.map(kind=>({ href:kind==='medical'?'/admin/medical-records':'/admin/laboratory-results',label:kind==='medical'?'Medical Records':'Laboratory Results',Icon:kind==='medical'?ClipboardList:FlaskConical }));
   const adminAccountItems = [
     { href: "/admin", label: "My Dashboard", Icon: LayoutDashboard },
     { href: "/admin/profile", label: "My Profile", Icon: UserRound },
@@ -205,27 +205,21 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
             className={`nav-services${servicesOpen ? " is-open" : ""}`}
             ref={servicesRef}
             onMouseEnter={() => { setServicesOpen(true); }}
-            onMouseLeave={() => { setServicesOpen(false); setExpandedServicesGroup(null); }}
+            onMouseLeave={() => { setServicesOpen(false); }}
             onFocus={() => setServicesOpen(true)}
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                 setServicesOpen(false);
-                setExpandedServicesGroup(null);
+
               }
             }}
           >
-            <button type="button" className={`nav-services-trigger${servicesOpen || pathname.startsWith("/services") || pathname.startsWith("/clinical-departments") || pathname.startsWith("/room-rates") ? " active" : ""}`} aria-haspopup="true" aria-expanded={servicesOpen} aria-controls="services-dropdown" onClick={() => { if (window.matchMedia("(hover: none)").matches) { setServicesOpen((open) => !open); setExpandedServicesGroup(null); } else setServicesOpen(true); }}>
+            <button type="button" className={`nav-services-trigger${servicesOpen || pathname.startsWith("/services") || pathname.startsWith("/clinical-departments") || pathname.startsWith("/room-rates") ? " active" : ""}`} aria-haspopup="true" aria-expanded={servicesOpen} aria-controls="services-dropdown" onClick={() => { if (window.matchMedia("(hover: none)").matches) { setServicesOpen((open) => !open); } else setServicesOpen(true); }}>
               <span className="nav-label">Our Services</span> <ChevronDown size={15} aria-hidden="true" className={servicesOpen ? "is-open" : ""}/>
             </button>
             <div className="services-dropdown" id="services-dropdown" aria-label="Our Services links" aria-hidden={!servicesOpen}>
-              {servicesMenu.map((item) => <div className={`services-dropdown-item${item.children ? " has-children offers-price-menu" : ""}${item.children && (expandedServicesGroup === item.label || item.children.some((child) => pathname === child.href || pathname.startsWith(`${child.href}/`))) ? " is-active" : ""}`} key={item.label} onMouseEnter={() => { if (item.children) setExpandedServicesGroup(item.label); }} onMouseLeave={() => { if (item.children) setExpandedServicesGroup((current) => current === item.label ? null : current); }}>
+              {servicesMenu.map((item) => <div className="services-dropdown-item" key={item.label}>
                 <Link href={item.href} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setServicesOpen(false)}><span className="nav-label">{item.label}</span></Link>
-                {item.children ? <>
-                  <button type="button" className="services-submenu-toggle" aria-label={`${expandedServicesGroup === item.label ? "Collapse" : "Expand"} ${item.label}`} aria-expanded={expandedServicesGroup === item.label} aria-controls={`submenu-${item.label.replaceAll(/[^a-z0-9]+/gi, "-").toLowerCase()}`} onClick={() => toggleServicesGroup(item.label)}><ChevronDown size={16} aria-hidden="true"/></button>
-                  {expandedServicesGroup === item.label ? <div className="services-submenu" id={`submenu-${item.label.replaceAll(/[^a-z0-9]+/gi, "-").toLowerCase()}`}>
-                    {item.children.map((child) => <Link href={child.href} key={child.href} aria-current={pathname === child.href ? "page" : undefined} onClick={() => setServicesOpen(false)}><span className="nav-label">{child.label}</span></Link>)}
-                  </div> : null}
-                </> : null}
               </div>)}
             </div>
           </div>
@@ -282,7 +276,7 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
                     return "action" in item
                       ? <button type="button" key={label} onClick={() => void signOut()}><Icon size={17} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span></button>
                       : <Link href={item.href} key={item.href} className={pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : undefined} aria-current={pathname === item.href ? "page" : undefined} onClick={() => setAccountOpen(false)}><Icon size={17} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span></Link>;
-                  }) : isAdmin ? <>{adminAccountItems.map(({ href, label, Icon }) => <Link href={href} key={href} onClick={() => setAccountOpen(false)}><Icon size={17} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span></Link>)}<button type="button" onClick={() => void signOut()}><LogOut size={17} strokeWidth={1.8} aria-hidden="true" /><span>Logout</span></button></> : <><p className="header-account-verifying">{userRole ? "No account links are available for this role." : "Verifying account accessâ€¦"}</p><button type="button" onClick={() => void signOut()}><LogOut size={17} strokeWidth={1.8} aria-hidden="true" /><span>Logout</span></button></>}
+                  }) : (isAdmin || clinicalAccountItems.length > 0) ? <>{[...(isAdmin?adminAccountItems:[]),...clinicalAccountItems].map(({ href, label, Icon }) => <Link href={href} key={href} onClick={() => setAccountOpen(false)}><Icon size={17} strokeWidth={1.8} aria-hidden="true" /><span>{label}</span></Link>)}<button type="button" onClick={() => void signOut()}><LogOut size={17} strokeWidth={1.8} aria-hidden="true" /><span>Logout</span></button></> : <><p className="header-account-verifying">{userRole ? "No account links are available for this role." : "Verifying account accessâ€¦"}</p><button type="button" onClick={() => void signOut()}><LogOut size={17} strokeWidth={1.8} aria-hidden="true" /><span>Logout</span></button></>}
                   {logoutError ? <p className="header-account-error" role="alert">{logoutError}</p> : null}
                 </nav> : null}
                 </div>
@@ -326,8 +320,6 @@ export function Header({ initialAuthOpen = false, authMessage }: { initialAuthOp
         items={navItems}
         currentPath={pathname}
         servicesMenu={servicesMenu}
-        expandedServicesGroup={expandedServicesGroup}
-        onToggleServicesGroup={toggleServicesGroup}
         mobileServicesExpanded={mobileServicesExpanded}
         onToggleMobileServices={() => setMobileServicesExpanded((open) => !open)}
         isOpen={mobileOpen}

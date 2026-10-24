@@ -8,9 +8,9 @@ const permissionLabels: Record<string, string> = {
   care_management: "Doctor assignment and care coordination",
   admissions: "Admissions, room, and bed management",
   clinical_author: "Write clinical notes (draft only)",
-  clinical_release: "Release clinical notes to patients",
+  clinical_release: "Clinically review and release medical records",
   lab_author: "Create test orders and enter results",
-  lab_release: "Release verified lab or diagnostic results",
+  lab_release: "Clinically review and release laboratory results",
   billing: "Create bills and record payments",
   inventory: "Record patient supply use and deduct stock",
 };

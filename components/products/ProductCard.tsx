@@ -9,6 +9,7 @@ type ProductCardProps = {
   description: string;
   price: string;
   image: string;
+  slug?: string;
   stock?: number;
   available?: boolean;
   href?: string;
@@ -21,6 +22,7 @@ export function ProductCard({
   description,
   price,
   image,
+  slug,
   stock,
   available,
   href = "/products",
@@ -29,7 +31,7 @@ export function ProductCard({
   return (
     <article className="product-card">
       <div className="product-image-wrap">
-        <ProductImage src={image} alt={name} className="product-image" />
+        <ProductImage src={image} slug={slug} alt={name} className="product-image" fill />
       </div>
       <div className="product-content">
         <span className="product-tag">{category}</span>

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { ChevronRight, Package, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, Package, PanelLeftClose, PanelLeftOpen, ClipboardList, FlaskConical } from "lucide-react";
 
-type IconName = "dashboard" | "inventory" | "orders" | "customers" | "staff" | "doctors" | "suppliers" | "careers" | "services" | "messages" | "settings" | "website" | "logout" | "appointments" | "products" | "profile" | "room-rates";
+type IconName = "dashboard" | "inventory" | "orders" | "customers" | "staff" | "doctors" | "suppliers" | "careers" | "services" | "messages" | "settings" | "website" | "logout" | "appointments" | "products" | "profile" | "room-rates" | "rooms" | "medical-records" | "laboratory-results";
 type NavItem = { href: string; label: string; icon: IconName; badge?: number };
 const nav: { section: string; items: NavItem[] }[] = [
   { section: "Main", items: [{ href: "/admin", label: "Dashboard Overview", icon: "dashboard" }] },
@@ -17,8 +17,11 @@ const nav: { section: string; items: NavItem[] }[] = [
     { href: "/admin/staff", label: "Staff", icon: "staff" },
   ] },
   { section: "Hospital Operations", items: [
+    { href: "/admin/medical-records", label: "Medical Records", icon: "medical-records" },
+    { href: "/admin/laboratory-results", label: "Laboratory Results", icon: "laboratory-results" },
     { href: "/admin/appointments", label: "Appointments", icon: "appointments" },
     { href: "/admin/room-rates", label: "Room Rates", icon: "room-rates" },
+    { href: "/admin/rooms", label: "Room Management", icon: "rooms" },
     { href: "/admin/services", label: "Healthcare Services", icon: "services" },
   ] },
   { section: "Finance", items: [{ href: "/admin/inventory", label: "Products", icon: "products" }, { href: "/admin/payments", label: "Patient Payments", icon: "orders" }] },
@@ -40,8 +43,9 @@ export function AdminSidebar({ isOpen, onClose, role, userName = "Administrator"
   const visibleGroups = nav.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
-      if (role === "PATIENT_STAFF") return item.href === "/admin/patients" || item.href === "/admin/payments";
+      if (role === "PATIENT_STAFF") return ["/admin/patients", "/admin/payments", "/admin/medical-records", "/admin/laboratory-results"].includes(item.href);
       const elevated = ["ADMIN", "SUPER_ADMIN"].includes(role ?? "");
+      if (["/admin/medical-records", "/admin/laboratory-results"].includes(item.href)) return elevated;
       if (item.href === "/admin/payments") return elevated;
       if (item.href === "/admin/inventory") return elevated || role === "INVENTORY_MANAGER";
       if (item.href === "/admin/patient-staff") return role === "SUPER_ADMIN";
@@ -51,6 +55,7 @@ export function AdminSidebar({ isOpen, onClose, role, userName = "Administrator"
       if (item.href === "/admin/patients") return elevated;
       if (item.href === "/admin/appointments") return elevated;
       if (item.href === "/admin/room-rates") return elevated;
+      if (item.href === "/admin/rooms") return elevated;
       return true;
     }),
   })).filter((group) => group.items.length > 0);
@@ -107,6 +112,8 @@ export function AdminSidebar({ isOpen, onClose, role, userName = "Administrator"
 function Icon({ name }: { name: IconName }) {
   if (name === "products") return <Package className="ad-nav-icon" size={18} aria-hidden="true" />;
   const paths: Record<IconName, ReactNode> = {
+    "medical-records": <ClipboardList size={20}/>,
+    "laboratory-results": <FlaskConical size={20}/>,
     dashboard: <><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="5" rx="1.5" /><rect x="13" y="10" width="8" height="11" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /></>,
     inventory: <><path d="M3 7h18v13H3z" /><path d="M5 7V4h14v3M8 11v5m4-5v5m4-5v5" /></>,
     orders: <><circle cx="9" cy="21" r="1" /><circle cx="19" cy="21" r="1" /><path d="M2 3h2l2.6 12.2a2 2 0 0 0 2 1.6h9.8a2 2 0 0 0 2-1.6L22 8H5" /></>,
@@ -124,6 +131,7 @@ function Icon({ name }: { name: IconName }) {
     products: <><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 12 9 5 9-5M3 16l9 5 9-5M12 13v8" /></>,
     profile: <><circle cx="12" cy="8" r="4" /><path d="M5 21a7 7 0 0 1 14 0" /></>,
     "room-rates": <><path d="M3 11h18v10H3zM5 11V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3M7 15h3m4 0h3" /><path d="M8 4V2m8 2V2" /></>,
+    rooms: <><path d="M3 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M17 10h4v11M7 7h5m-5 4h5m-5 4h5M2 21h20"/><path d="M8 21v-3h3v3"/></>,
   };
   return <svg className="ad-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }

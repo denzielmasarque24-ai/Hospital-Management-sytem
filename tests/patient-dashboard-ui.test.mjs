@@ -16,6 +16,7 @@ function component(name) {
     if(name.endsWith('.css'))return {};
     if(name==='@/components/ui/Modal')return {Modal:function MockModal(){}};
     if(name==='next/link')return {default:'a',__esModule:true};
+    if(name==='next/navigation')return {useRouter:()=>({refresh(){}})};
     if(name.includes('dashboard.mjs'))return dashboard;
     if(name.includes('supabase/client'))return {supabase:null};
     if(name==='./PatientMedicalHistory')return {default:'MedicalHistory',__esModule:true};
@@ -27,23 +28,40 @@ function component(name) {
   return props=>{cursor=0;return exports.default(props);};
 }
 
-test('demo bills stay omitted and the billing page shows its clear empty state without payment controls',()=>{
+test('demo bill and completed payment render separately from real totals and remain non-payable',()=>{
   const render=component('PatientBillingContent');
-  const tree=render({data:{bills:[{id:'b',bill_number:'DEMO-INVOICE',is_demo:true,total_amount:3930}],charges:[{id:'c',bill_id:'b',item_name:'Fixture charge',quantity:1,unit_price:3930,total_amount:3930}],payments:[{id:'p',bill_id:'b',amount:2000,status:'completed',receipt_url:'https://example.invalid/receipt'}]}});
-  assert.match(text(tree),/No hospital bills have been issued to your account/);
-  assert(!text(tree).includes('DEMO-INVOICE'));
-  assert(!text(tree).includes('Fixture charge'));
-  assert(!text(tree).includes('3,930'));
+  const demoCharges=[1500,900,1000,200,330].map((amount,index)=>({id:`c${index}`,bill_id:'b',description:`Fixture charge ${index}`,category:'medical_supply',quantity:1,unit_price:amount,is_demo:true}));
+  const tree=render({data:{bills:[],charges:[],payments:[],demoBills:[{id:'b',bill_number:'DEMO-RENALYN-202610',status:'partial',is_demo:true}],demoCharges,demoPayments:[{id:'p',bill_id:'b',amount:2000,status:'completed',payment_method:'Demo card',paid_at:'2026-10-20T00:00:00Z',is_demo:true}]}});
+  const output=text(tree);
+  assert.match(output,/No hospital bills have been issued to your account/);
+  assert.match(readFileSync(new URL('../components/patient/PatientBillingContent.tsx',import.meta.url),'utf8'),/const billsForDisplay = \(data\.bills \?\? \[\]\)\.filter\(\(bill\) => bill\.is_demo === false && !isDemo\(bill\)\)/);
+  assert.match(output,/Demo Billing History/);
+  assert.match(output,/DEMO-RENALYN-202610/);
+  assert.match(output,/DEMO — NOT PAYABLE/);
+  assert.match(output,/Demo charges ₱3,930\.00/);
+  assert.match(output,/Demo payment ₱2,000\.00/);
+  assert.match(output,/Demo remaining balance ₱1,930\.00/);
+  assert.match(output,/Demo card/);
+  assert.match(readFileSync(new URL('../components/patient/PatientBillingContent.tsx',import.meta.url),'utf8'),/ChargeTable charges=\{bill\.chargeRows\}/);
   assert(!/MAKE A PAYMENT|Secure checkout|Payment Amount|GCash|Maya|Credit\/Debit Card|Pay Now|checkout/i.test(text(tree)));
-  assert(!flatten(tree).some(node=>node.props?.href==='https://example.invalid/receipt'));
+  assert.equal(flatten(tree).filter(node=>node.props?.className==='patient-demo-badge').length,1);
 });
 
 test('discharged demo room renders only under room history',()=>{
   const render=component('PatientSectionContent');
-  const tree=render({section:'room-information',data:{admissions:[{id:'a',room_id:'r',bed_number:'B1',status:'discharged',admission_date:'2026-01-01',discharge_date:'2026-01-02',is_demo:true}],rooms:[{id:'r',room_number:'DEMO-R201',room_type:'Private'}]}});
+  const tree=render({section:'room-information',data:{admissions:[{id:'a',status:'discharged',admitted_at:'2026-01-01',discharged_at:'2026-01-02',is_demo:true,room_id:'r',room:{id:'r',room_number:'DEMO-R201',bed_number:'Bed 1',room_type:'Private Room',status:'available',is_demo:true}}]}});
   const sections=flatten(tree).filter(node=>node.type==='section');
   assert(!text(sections[0]).includes('DEMO-R201'));
-  assert.match(text(sections[1]),/Room History.*DEMO-R201.*Historical assignment/s);
+  assert.match(text(sections[1]),/Previous Room & Bed History.*DEMO-R201.*Discharged/s);
+  assert.match(readFileSync(new URL('../components/patient/PatientSectionContent.tsx',import.meta.url),'utf8'),/Room inventory status" value=\{room\?\.status\}/);
+});
+
+test('discharged demo attending doctor appears as history with admission dates',()=>{
+  const render=component('PatientSectionContent');
+  const tree=render({section:'assigned-doctor',data:{admissions:[{id:'a',status:'discharged',admitted_at:'2026-01-01',discharged_at:'2026-01-02',doctor_id:'d',is_demo:true,doctor:{id:'d',display_name:'Dr. Patricia Ramos',specialty:'Family Medicine',department:'Family Medicine',is_demo:true}}]}});
+  const output=text(tree);
+  assert.match(output,/Previous Attending Doctors.*Dr. Patricia Ramos/s);
+  assert.match(output,/Family Medicine/);
 });
 
 test('bill total remains visible and missing itemized charges are clearly identified',()=>{
@@ -126,7 +144,7 @@ test('each medical history category filters the visible records and booking comp
 
 test('three appointments appear once and completed filtering works',()=>{
   const render=component('PatientAppointments');
-  const props={patientId:'fixture',requests:[],requestsError:'',appointments:['pending','confirmed','completed'].map((status,i)=>({id:String(i),department:'Service',doctor:'Doctor',specialty:'Family Medicine',preferred_date:'2026-01-01',preferred_time:'09:00:00',reason:'Fixture note',status,created_at:'2026-01-01'}))};
+  const props={patientId:'fixture',requests:[],requestsError:'',appointments:['pending','confirmed','completed'].map((status,i)=>({id:String(i),service_name:'Family Medicine',department:'Family Medicine',doctor:'Doctor',specialty:'Family Medicine',preferred_date:'2026-01-01',preferred_time:'09:00:00',reason:'Fixture note',status,created_at:'2026-01-01'}))};
   let tree=render(props);
   assert.equal(flatten(tree).filter(node=>node.type==='article').length,3);
   flatten(tree).find(node=>node.type==='button'&&text(node)==='Completed').props.onClick();

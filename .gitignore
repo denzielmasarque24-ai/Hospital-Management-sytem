@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.tmp/clinical-db/
 
 # next.js
 /.next/

@@ -14,22 +14,21 @@ export default async function PatientAppointmentsPage() {
   if(authError || !user || !user.email_confirmed_at) redirect("/login");
   let body;
   try {
-    const [appointments,requestResult]=await Promise.all([
-      patientRows(supabase,"appointments",user.id),
-      supabase.from("patient_appointment_change_requests").select("id,appointment_id,request_type,requested_date,requested_time,reason,status,created_at").eq("patient_id",user.id).order("created_at",{ascending:false}),
+    const appointments=await patientRows(supabase,"appointments",user.id,"id,patient_id,doctor_id,service_id,appointment_date,appointment_time,status,notes,created_at",{orderBy:"appointment_date",ascending:false});
+    const optional=async(label:string,run:()=>any,fallback:any):Promise<any>=>{try{const result=await run();if(result?.error)throw Object.assign(new Error(result.error.message),{code:result.error.code,table:label});return result?.data??fallback;}catch(error){const failure=error as {message?:string;code?:string;table?:string};console.error("[PatientAppointments] Optional query failed",JSON.stringify({table:failure.table||label,code:failure.code,message:failure.message}));return fallback;}};
+    const [requestRows,services]=await Promise.all([
+      optional("patient_appointment_change_requests",()=>supabase.from("patient_appointment_change_requests").select("id,appointment_id,request_type,requested_date,requested_time,reason,status,created_at").eq("patient_id",user.id).order("created_at",{ascending:false}),null),
+      optional("services",()=>relatedRows(supabase,"services",appointments.map((row:any)=>row.service_id),"id,name,description"),[]),
     ]);
-    const [services,doctors]=await Promise.all([
-      relatedRows(supabase,"services",appointments.map(row=>row.service_id)),
-      relatedRows(supabase,"doctors",appointments.map(row=>row.doctor_id)),
-    ]);
-    if(requestResult.error) console.error("[PatientDashboard] Supabase query failed", JSON.stringify({ table: "patient_appointment_change_requests", operation: "select appointment change requests", filter: "patient_id = authenticated user id", code: requestResult.error.code, message: requestResult.error.message, details: requestResult.error.details, hint: requestResult.error.hint }));
-    const serviceById=new Map(services.map(row=>[row.id,row]));
-    const doctorById=new Map(doctors.map(row=>[row.id,row]));
-    const cards=appointments.sort((a,b)=>`${b.appointment_date}T${b.appointment_time}`.localeCompare(`${a.appointment_date}T${a.appointment_time}`)).map(row=>{
-      const doctor=doctorById.get(row.doctor_id),service=serviceById.get(row.service_id);
-      return {id:row.id,department:service?.name || "Service details unavailable",service_details:service?.short_description || service?.description || "",doctor:row.doctor_id ? doctorName(doctor) : "Doctor to be assigned",specialty:doctor?.specialty || doctor?.specialization || "",preferred_date:row.appointment_date,preferred_time:row.appointment_time || "00:00:00",reason:row.notes || "",status:row.status,created_at:row.created_at,is_demo:isDemo(row)};
+    const doctors=await optional("doctors",()=>relatedRows(supabase,"doctors",appointments.map((row:any)=>row.doctor_id),"id,display_name,specialty,department"),[]);
+    const requestError=requestRows===null?"Appointment change requests could not be loaded.":"";
+    const serviceById=new Map<string,any>(services.map((row:any)=>[row.id,row]));
+    const doctorById=new Map<string,any>(doctors.map((row:any)=>[row.id,row]));
+    const cards=appointments.sort((a:any,b:any)=>`${b.appointment_date}T${b.appointment_time}`.localeCompare(`${a.appointment_date}T${a.appointment_time}`)).map((row:any)=>{
+      const doctor=row.doctor_id?doctorById.get(row.doctor_id):null,service=row.service_id?serviceById.get(row.service_id):null;
+      return {id:row.id,service_name:service?.name||(row.service_id?"Service details unavailable":"Service not specified"),service_details:service?.description||"",department:doctor?.department||service?.name||"",doctor:row.doctor_id?doctor?doctorName(doctor):"Doctor details unavailable":"Doctor to be assigned",specialty:doctor?.specialty||"",preferred_date:row.appointment_date,preferred_time:row.appointment_time||"00:00:00",reason:row.notes||"",status:row.status,created_at:row.created_at,is_demo:isDemo(row)};
     });
-    body=<PatientAppointments patientId={user.id} appointments={cards} requests={requestResult.data ?? []} requestsError={requestResult.error ? `Appointment change requests could not be loaded (${requestResult.error.code || "QUERY_FAILED"}). Please reload or contact the care team.` : ""}/>;
+    body=<PatientAppointments patientId={user.id} appointments={cards} requests={requestRows??[]} requestsError={requestError}/>;
   } catch(error) {
     const failure=error as {code?:string;table?:string};
     body=<section className="patient-card patient-query-error" role="alert"><h2>Appointments could not be loaded</h2><p>Please reload or contact your care team.</p><p>Reference: {failure.table || "appointments"} · {failure.code || "LOAD_FAILED"}</p><a className="patient-secondary-button" href="/patient/appointments">Try again</a></section>;

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 
 import { loadProducts } from "@/lib/admin/products";
+import { supabase } from "@/lib/supabase/client";
 import { type Product } from "@/lib/admin/mockData";
 import { formatPhp } from "@/lib/currency";
 import { ProductCard } from "./ProductCard";
@@ -36,6 +37,7 @@ export function ProductCatalog() {
     void loadProducts().then(({ products: rows, source, error }) => {
       if (!active) return;
       setProducts(source === "sample" ? [] : rows);
+      setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null);
       setIsSampleData(source === "sample");
       setLoadError(Boolean(error));
       setIsLoading(false);
@@ -71,7 +73,16 @@ export function ProductCatalog() {
   useEffect(() => {
     const refresh = () => setReloadKey((key) => key + 1);
     window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
+    const refreshVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", refreshVisible);
+    const interval = window.setInterval(refreshVisible, 30_000);
+    const channel = supabase?.channel("public-product-catalog").on("postgres_changes", { event: "*", schema: "public", table: "products" }, refresh).subscribe();
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      window.clearInterval(interval);
+      if (channel && supabase) void supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -116,14 +127,14 @@ export function ProductCatalog() {
       {!isLoading && !loadError && !isSampleData && <>
         <p className="catalog-result-count" role="status">Showing <strong>{filteredProducts.length}</strong> of {products.length} products</p>
         {filteredProducts.length > 0 ? <div className="product-grid">
-          {filteredProducts.map((product) => <ProductCard key={product.id} name={product.name} category={product.category} description={product.description} price={formatPhp(product.price)} image={product.image ?? ""} stock={product.stock} available={product.available} onView={() => setSelected(product)} />)}
+          {filteredProducts.map((product) => <ProductCard key={product.id} name={product.name} slug={product.slug} category={product.category} description={product.description} price={formatPhp(product.price)} image={product.image ?? ""} stock={product.stock} available={product.available} onView={() => setSelected(product)} />)}
         </div> : <div className="empty-state" role="status">{products.length === 0 ? "No products are currently listed in the hospital catalog." : "No products match your search or selected category."}</div>}
       </>}
 
       {selected && <div className="catalog-product-backdrop" onClick={() => setSelected(null)}>
         <section className="catalog-product-dialog" role="dialog" aria-modal="true" aria-labelledby="catalog-product-title" onClick={(event) => event.stopPropagation()}>
           <button type="button" ref={closeRef} className="catalog-product-close" onClick={() => setSelected(null)} aria-label="Close product details">×</button>
-          <ProductImage src={selected.image} alt={selected.name} className="catalog-product-image" fallback={<ProductImageFallback />} />
+          <div className="catalog-product-visual"><ProductImage src={selected.image} slug={selected.slug} alt={selected.name} className="catalog-product-image" fill fallback={<ProductImageFallback />} /></div>
           <div className="catalog-product-info"><span className="product-tag">{selected.category}</span><h2 id="catalog-product-title">{selected.name}</h2><p>{selected.description}</p><strong>{formatPhp(selected.price)}</strong><p>{selected.stock === 0 ? "Out of Stock" : selected.available === false ? "Unavailable" : "In Stock"}</p>{selected.prescriptionRequired && <span className="product-prescription">Prescription required</span>}{selected.sku ? <small>SKU: {selected.sku}</small> : null}</div>
         </section>
       </div>}

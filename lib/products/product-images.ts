@@ -37,11 +37,52 @@ const PRODUCT_IMAGE_PATHS: Readonly<Record<string, string>> = {
   "Multivitamins Capsules": "/images/products/multivitamins-capsules.png",
   "Nebulizer Machine": "/images/products/nebulizer-machine.png",
   "Oral Rehydration Salts Sachet": "/images/products/oral-rehydration-salts-sachet.png",
+  "Losartan 50mg Tablets": "/images/products/Losartan Tablets Packaging Still Life.png",
+  "Orthopedic Neck Pillow": "/images/products/Ergonomic White and Gray Cervical Pillow.png",
+  "Pulse Oximeter": "/images/products/Blue-and-White Pulse Oximeter Display.png",
+  "PureVital Multivitamin": "/images/products/PureVital Multivitamin Product Display.png",
+  "Reusable Hot Water Bag": "/images/products/Blue Hot Water Bottle with Plush Gray Cover.png",
+  "Saline Nasal Spray 30ml": "/images/products/Saline Nasal Spray Product Display.png",
+  "Sterile Dressing Pack": "/images/products/Sterile Dressing Pack Contents.png",
+  "Sterile Gauze Pads": "/images/products/Sterile Gauze Pads Product Display.png",
+  "Sterile Surgical Blades (Box of 100)": "/images/products/Sterile Surgical Blades Product Display.png",
+  "Sterile Surgical Drapes": "/images/products/Sterile Surgical Drapes Product Set.png",
+  "Sterile Surgical Gloves": "/images/products/Sterile Surgical Gloves Studio Display.png",
+  "Surgical Face Masks": "/images/products/Surgical Face Masks Product Display.png",
+  "Surgical Instrument Tray": "/images/products/Sterile Stainless Steel Surgical Tray Kit.png",
+  "Surgical Scalpel Handle No. 3": "/images/products/Surgical Scalpel Handle No. 3.png",
+  "Surgical Suction Tubing": "/images/products/Sterile Surgical Suction Tubing Set.png",
+  "Vitamin B-Complex Tablets": "/images/products/Vitamin B-Complex Supplement Display.png",
+  "Vitamin C 500mg": "/images/products/Vitamin C Tablets Product Advertisement.png",
+  "Vitamin D3 1000 IU": "/images/products/Vitamin D3 Supplement Product Shot.png",
+  "Yankauer Suction Tip": "/images/products/Yankauer Suction Tip Medical Packaging.png",
 };
 
-export function getProductImagePath(name: string | null | undefined): string | null {
+function imageKey(name: string) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+export const productImageMap: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(PRODUCT_IMAGE_PATHS).map(([name, src]) => [imageKey(name), src]),
+);
+
+export function getProductImagePath(name: string | null | undefined, slug?: string): string | null {
   const exactName = typeof name === "string" ? name.trim() : "";
-  return PRODUCT_IMAGE_PATHS[exactName] ?? null;
+  const key = slug || imageKey(exactName);
+  return (Object.hasOwn(productImageMap, key) ? productImageMap[key] : null) ?? PRODUCT_IMAGE_PATHS[exactName] ?? null;
+}
+
+export function getProductImageSources(name: string, imageUrl?: string | null, slug?: string): string[] {
+  const value = imageUrl?.trim() || "";
+  let uploaded = "";
+  if (value.startsWith("/") && !value.startsWith("//")) uploaded = value;
+  else if (value) {
+    try {
+      const url = new URL(value);
+      if (["https:", "http:", "blob:"].includes(url.protocol)) uploaded = url.href;
+    } catch { /* Invalid URLs use the matching local image. */ }
+  }
+  return [...new Set([uploaded, getProductImagePath(name, slug)].filter((src): src is string => Boolean(src)))];
 }
 
 export const MATCHED_PRODUCT_IMAGE_COUNT = Object.keys(PRODUCT_IMAGE_PATHS).length;

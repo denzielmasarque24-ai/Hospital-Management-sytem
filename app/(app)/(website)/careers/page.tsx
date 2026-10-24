@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { HeartPulse, TrendingUp, UsersRound } from "lucide-react";
 
 import { CareersBoard } from "@/components/common/CareersBoard";
@@ -18,12 +17,6 @@ const careerHighlights = [
 export default function CareersPage() {
   return (
     <main className="careers-page">
-      <nav className="container careers-breadcrumb" aria-label="Breadcrumb">
-        <Link href="/">Home</Link>
-        <span aria-hidden="true">›</span>
-        <span aria-current="page">Careers</span>
-      </nav>
-
       <section className="careers-hero" aria-labelledby="careers-title">
         <img className="careers-hero-image" src="/images/careers/careers.png" alt="MedWell healthcare professionals working together" fetchPriority="high" />
         <div className="careers-hero-wash" aria-hidden="true" />

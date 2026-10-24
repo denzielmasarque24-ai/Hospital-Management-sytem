@@ -1,4 +1,5 @@
 ﻿import Link from "next/link";
+import { ServicesDirectory } from "@/components/services/ServicesDirectory";
 
 import { AppointmentCTA } from "@/components/appointments/AppointmentCTA";
 import { DoctorCarousel } from "@/components/doctors/DoctorCarousel";
@@ -17,14 +18,6 @@ const helpItems = [
   { title: "Pharmacy", text: "Browse listed medical products.", href: "/pharmacy", icon: "pharmacy" },
   { title: "Lab Tests", text: "Explore diagnostic services.", href: "/lab-tests", icon: "laboratory" },
   { title: "Health Packages", text: "View available package information.", href: "/health-packages", icon: "packages" },
-];
-
-const healthcareServices = [
-  { title: "Pharmacy", text: "Browse medical products currently listed in the hospital catalog.", href: "/pharmacy", image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=85", alt: "Pharmaceutical products", icon: "✚" },
-  { title: "Cardiology", text: "Explore the hospital’s current service listings and care information.", href: "/services", image: "https://images.unsplash.com/photo-1530026186672-2cd00ffc50fe?auto=format&fit=crop&w=800&q=85", alt: "Anatomical human heart model", icon: "♡" },
-  { title: "Neurology", text: "Browse configured services and contact the hospital for details.", href: "/services", image: "https://images.unsplash.com/photo-1644648479153-2a3dbee76212?auto=format&fit=crop&w=800&q=85", alt: "Human brain on a white background", icon: "⌁" },
-  { title: "Pathology Lab", text: "Review diagnostic and laboratory services currently listed.", href: "/lab-tests", image: "https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=800&q=85", alt: "Laboratory testing equipment", icon: "⌬" },
-  { title: "Pediatrics", text: "Browse current service information for patients and families.", href: "/services", image: "https://images.unsplash.com/photo-1632053002928-1919605ee6f7?auto=format&fit=crop&w=800&q=85", alt: "Child healthcare image", icon: "＋" },
 ];
 
 const verifiedHighlights = [
@@ -87,20 +80,9 @@ export default async function HomePage() {
             <h2 id="home-healthcare-title"><span>Our</span> <em>Healthcare</em> <span>Services</span></h2>
             <p>Comprehensive healthcare solutions for you and your family.</p>
           </header>
-          <div className="home-service-grid">
-            {healthcareServices.map((service) => (
-              <Link className="home-service-card" href={service.href} key={service.title}>
-                <div className="home-service-image">
-                  <img src={service.image} alt={service.alt} />
-                  <span className="home-service-icon" aria-hidden="true">{service.icon}</span>
-                </div>
-                <div className="home-service-copy">
-                  <h3>{service.title}</h3>
-                  <p>{service.text}</p>
-                  <span className="home-service-arrow" aria-label={`Explore ${service.title}`}><ArrowRight size={17} /></span>
-                </div>
-              </Link>
-            ))}
+          <ServicesDirectory section="clinical_departments" healthcare showSearch={false} limit={5} />
+          <div className="home-services-footer">
+            <Link href="/services" className="home-about-link">View All Services <ArrowRight size={16} aria-hidden="true" /></Link>
           </div>
         </div>
       </section>

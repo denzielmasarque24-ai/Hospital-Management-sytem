@@ -86,7 +86,13 @@ export async function proxy(request: NextRequest) {
     const isDashboard = pathname === "/admin";
     const isInventory = INVENTORY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     const isSales = SALES_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-    const allowed = canAdmin && (!isDashboard || role === "ADMIN" || role === "SUPER_ADMIN") &&
+    const clinicalKind = pathname === "/admin/medical-records" ? "medical" : pathname === "/admin/laboratory-results" ? "lab" : null;
+    let clinicalAccess = false;
+    if (clinicalKind) {
+      const { data, error } = await supabase.rpc("clinical_permission", { p_kind: clinicalKind, p_release: false });
+      clinicalAccess = !error && data === true;
+    }
+    const allowed = clinicalAccess || canAdmin && (!isDashboard || role === "ADMIN" || role === "SUPER_ADMIN") &&
       (!isAdminOnly || role === "ADMIN" || role === "SUPER_ADMIN") &&
       (!isInventory || role !== "SALES_STAFF") && (!isSales || role !== "INVENTORY_MANAGER");
 

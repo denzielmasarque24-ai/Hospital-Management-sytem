@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { ServicesDirectory } from "@/components/services/ServicesDirectory";
 
 export const metadata: Metadata = {
@@ -11,9 +9,6 @@ export const metadata: Metadata = {
 export default function ServicesPage() {
   return <main className="services-directory-page services-facilities-page">
     <div className="container">
-      <nav className="services-directory-breadcrumbs" aria-label="Breadcrumb">
-        <Link href="/">Home</Link><ChevronRight size={14} aria-hidden="true" /><span aria-current="page">Services &amp; Facilities</span>
-      </nav>
       <header className="services-directory-header">
         <span className="services-directory-eyebrow">MEDWELL MEDICAL HOSPITAL</span>
         <h1>Services &amp; Facilities</h1>

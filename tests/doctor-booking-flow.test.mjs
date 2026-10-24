@@ -38,7 +38,7 @@ test('booking form uses the validated default doctor without changing available 
    'next/navigation':{useRouter:()=>({push(){}})},
  });
  const nodes=flat(form.AppointmentForm({services:[{id:serviceId,name:'Existing service'}],doctors:[{id:doctorId,display_name:'Existing doctor'}],defaultDoctorId:doctorId}));
- const select=nodes.find(node=>node.type==='select'&&node.props.name==='doctorId');assert.equal(select.props.defaultValue,doctorId);
+ const select=nodes.find(node=>node.type==='select'&&node.props.name==='doctorId');assert.equal(select.props.value,doctorId);
  assert(flat(select).some(node=>node.type==='option'&&node.props.value===doctorId));
 });
 

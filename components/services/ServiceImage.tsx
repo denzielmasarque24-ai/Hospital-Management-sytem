@@ -1,31 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-const FALLBACK_IMAGE = "/images/services/medical-placeholder.svg";
+import { useState } from "react";
+import Image from "next/image";
+import { getServiceImageSources } from "@/lib/services/service-images.mjs";
 
 export function ServiceImage({
   src,
+  slug = "",
   alt,
   loading,
+  sizes = "(max-width: 680px) 100vw, (max-width: 1024px) 50vw, 25vw",
 }: {
   src: string | null;
+  slug?: string;
   alt: string;
   loading?: "eager" | "lazy";
+  sizes?: string;
 }) {
-  const [imageSrc, setImageSrc] = useState(src || FALLBACK_IMAGE);
+  const sources = getServiceImageSources(slug, src);
+  return <ImageWithFallback key={JSON.stringify(sources)} sources={sources} alt={alt} loading={loading} sizes={sizes} />;
+}
 
-  useEffect(() => {
-    setImageSrc(src || FALLBACK_IMAGE);
-  }, [src]);
-
-  return <img
-    src={imageSrc}
-    alt={alt}
-    loading={loading}
-    onError={(event) => {
-      if (imageSrc !== FALLBACK_IMAGE) setImageSrc(FALLBACK_IMAGE);
-      else event.currentTarget.hidden = true;
-    }}
-  />;
+function ImageWithFallback({ sources, alt, loading, sizes }: { sources: string[]; alt: string; loading?: "eager" | "lazy"; sizes: string }) {
+  const [index, setIndex] = useState(0);
+  const src = sources[index];
+  return <Image src={src} alt={alt} fill sizes={sizes}
+    loading={loading} unoptimized={/^https?:\/\//.test(src)}
+    style={{ objectFit: "cover", objectPosition: "center" }}
+    onError={() => setIndex((current) => Math.min(current + 1, sources.length - 1))} />;
 }

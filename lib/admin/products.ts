@@ -1,6 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
 import { type Product } from "@/lib/admin/mockData";
-import { getProductImagePath } from "@/lib/products/product-images";
 
 type ProductRow = {
   id: string;
@@ -28,7 +27,9 @@ const fromRow = (row: ProductRow): Product => ({
   description: row.description ?? "",
   available: row.available,
   prescriptionRequired: row.prescription_required,
-  image: row.image_url?.trim() || getProductImagePath(row.name) || undefined,
+  // Keep the stored value separate from display fallbacks so an unrelated edit
+  // never writes a local fallback path back into image_url.
+  image: row.image_url?.trim() || undefined,
 });
 
 export function slugifyProduct(value: string) {

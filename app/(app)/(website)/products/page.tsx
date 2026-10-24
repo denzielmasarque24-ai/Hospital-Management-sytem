@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function ProductsPage() {
   return (
-    <div className="container page-shell products-page">
+    <div className="container products-page">
       <section className="products-hero" aria-labelledby="products-heading">
         <div className="products-hero-copy">
           <span className="products-hero-badge">HOSPITAL CATALOG</span>

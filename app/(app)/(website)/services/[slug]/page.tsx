@@ -36,10 +36,8 @@ export default async function ServiceDetailPage({
       <Link href={listHref} className="service-detail-back"><ArrowLeft size={18} aria-hidden="true" /> Back to {listLabel}</Link>
 
       <section className="service-detail-hero" aria-labelledby="service-detail-title">
-        <div className={`service-detail-image${service.image_url ? "" : " service-detail-image-fallback"}`}>
-          {service.image_url
-            ? <ServiceImage src={service.image_url} alt={service.name} loading="eager" />
-            : <div className="service-detail-placeholder" aria-label="Service image unavailable"><span><Stethoscope size={42} aria-hidden="true" /></span></div>}
+        <div className="service-detail-image">
+          <ServiceImage src={service.image_url} slug={service.slug} alt={service.name} loading="eager" sizes="(max-width: 768px) 100vw, 50vw" />
         </div>
         <div className="service-detail-intro">
           <div className="service-hero-badges">
@@ -93,10 +91,9 @@ export default async function ServiceDetailPage({
         </div>
         <div className="service-related-grid">
           {relatedServices.map((related) => {
-            const relatedImage = related.image_url && !related.image_url.includes("medical-placeholder.svg") ? related.image_url : null;
             return <Link href={`/services/${encodeURIComponent(related.slug)}?section=${related.section}`} className="service-related-card" key={related.slug}>
-              <div className={relatedImage ? "service-related-image" : "service-related-image service-related-image-fallback"}>
-                {relatedImage ? <ServiceImage src={relatedImage} alt={related.name} loading="lazy" /> : <span className="service-related-placeholder"><Stethoscope size={23} aria-hidden="true" /></span>}
+              <div className="service-related-image">
+                <ServiceImage src={related.image_url} slug={related.slug} alt={related.name} loading="lazy" />
               </div>
               <div className="service-related-card-body">
                 <h3>{related.name}</h3>

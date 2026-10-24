@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { BadgeCheck, ChevronRight, ClipboardPlus, HeartHandshake } from "lucide-react";
+import { BadgeCheck, ClipboardPlus, HeartHandshake } from "lucide-react";
 import { ServicesDirectory } from "@/components/services/ServicesDirectory";
 
 export const metadata: Metadata = {
@@ -16,12 +15,6 @@ const departmentHighlights = [
 
 export default function ClinicalDepartmentsPage() {
   return <main className="services-directory-page clinical-departments-page">
-    <div className="container clinical-departments-top">
-      <nav className="services-directory-breadcrumbs" aria-label="Breadcrumb">
-        <Link href="/">Home</Link><ChevronRight size={14} aria-hidden="true" /><span aria-current="page">Clinical Departments</span>
-      </nav>
-    </div>
-
     <header className="clinical-departments-hero">
       <div className="container clinical-departments-hero-inner">
         <div className="clinical-departments-hero-copy">

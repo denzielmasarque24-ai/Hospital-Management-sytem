@@ -11,7 +11,7 @@ const sections = {
   "medical-history": {title:"My Medical History",eyebrow:"YOUR HEALTH RECORDS",icon:HeartPulse,description:"Review records shared by your MedWell care team."},
   admissions: {title:"My Admissions",eyebrow:"YOUR HOSPITAL CARE",icon:HeartPulse,description:"Review your current and past hospital admissions."},
   "room-information": {title:"My Room Information",eyebrow:"YOUR STAY",icon:BedDouble,description:"See room details connected to your admission."},
-  billing: {title:"My Bills & Payments",eyebrow:"YOUR PAYMENTS",icon:CreditCard,description:"Review itemized bills, make payments, and track your balance."},
+  billing: {title:"My Bills & Payments",eyebrow:"YOUR PAYMENTS",icon:CreditCard,description:"Review finalized itemized bills, verified hospital payments, and your outstanding balance."},
   "medical-supplies": {title:"Medical Supplies & Charges",eyebrow:"YOUR CARE DETAILS",icon:Package,description:"Review supplies and charges recorded for your care."},
 };
 
@@ -27,7 +27,7 @@ export default async function PatientSectionPage({params}:{params:Promise<{secti
   let body;
   try {
     const data=await loadPatientSection(client,user.id,section);
-    body=<PatientSectionContent section={section} data={data}/>;
+    body=<PatientSectionContent section={section} data={data as any}/>;
   } catch(error) {
     const failure=error as {code?:string;table?:string;message?:string};
     body=<section className="patient-card patient-query-error" role="alert"><h2>{section === "billing" ? "Billing records could not be loaded" : "We could not load this section"}</h2><p>{failure.message || "Please reload the page. If this continues, contact the hospital."} Please retry; if it continues, share the reference below with the hospital.</p><p className="patient-muted">Reference: {failure.table || section} · {failure.code || "LOAD_FAILED"}</p><a className="patient-secondary-button" href={`/patient/${section}`}>Try again</a></section>;

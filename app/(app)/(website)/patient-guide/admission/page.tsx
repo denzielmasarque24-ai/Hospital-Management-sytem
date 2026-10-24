@@ -38,13 +38,6 @@ const admissionReminders = [
 export default function AdmissionGuidePage() {
   return (
     <div className="admission-guide-page">
-      <div className="admission-breadcrumb-band">
-        <div className="container">
-          <nav className="admission-breadcrumbs" aria-label="Breadcrumb">
-            <Link href="/">Home</Link><span aria-hidden="true">/</span><span>Patient Guide</span><span aria-hidden="true">/</span><span aria-current="page">How to Get Admitted</span>
-          </nav>
-        </div>
-      </div>
       <section className="admission-guide-hero">
         <div className="container admission-guide-content">
           <div className="admission-guide-intro">

@@ -86,7 +86,7 @@ export default function PatientsPage() {
       {error ? <div className="ad-content-alert error" role="alert" style={{ margin: 16 }}>{error.includes("Administrator access required") ? "You do not have permission to view patient accounts." : `Could not load patient accounts: ${error}`}</div> : null}
       {loading ? <p role="status" style={{ padding: 20 }}>Loading patient records…</p> : error ? null : patients.length ? <>
         <div className="ad-table-wrap"><table className="ad-table"><thead><tr><th>Patient ID</th><th>Full Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Actions</th></tr></thead>
-          <tbody>{patients.map((patient) => <tr key={patient.id}>
+          <tbody>{patients.map((patient, index) => <tr key={`${patient.id || patient.email || "patient"}-${index}`}>
             <td><code>{patient.id}</code></td>
             <td><div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 600 }}>{patient.avatar_url ? <img src={patient.avatar_url} alt="" width={36} height={36} loading="lazy" style={{ flex: "0 0 auto", borderRadius: "50%", objectFit: "cover" }} /> : null}<span>{patient.full_name?.trim() || "Name not provided"}</span></div></td>
             <td>{patient.email || "—"}</td>
@@ -101,7 +101,7 @@ export default function PatientsPage() {
     {selected ? <div className="ad-modal-backdrop" onClick={() => setSelected(null)}>
       <section className="ad-modal" role="dialog" aria-modal="true" aria-labelledby="patient-detail-title" onClick={(event) => event.stopPropagation()}>
         <div className="ad-modal-header"><h2 className="ad-modal-title" id="patient-detail-title">Patient Details</h2><button type="button" className="ad-btn ad-btn-ghost ad-btn-sm" onClick={() => setSelected(null)}>Close</button></div>
-        <div className="ad-modal-body">{selected.avatar_url ? <img src={selected.avatar_url} alt="Patient profile" width={72} height={72} style={{ borderRadius: "50%", objectFit: "cover" }} /> : null}{[["Patient ID", selected.id], ["Full Name", selected.full_name?.trim() || "Name not provided"], ["Email", selected.email || "—"], ["Contact Number", selected.phone || "—"], ["Role", selected.role || "PATIENT"]].map(([label, value]) => <div className="ad-product-detail-row" key={label}><b>{label}</b><span>{value}</span></div>)}<Link className="ad-btn ad-btn-primary" href={`/admin/appointments?patient=${encodeURIComponent(selected.id)}`} onClick={() => setSelected(null)}>View Appointments</Link></div>
+        <div className="ad-modal-body">{selected.avatar_url ? <img src={selected.avatar_url} alt="Patient profile" width={72} height={72} style={{ borderRadius: "50%", objectFit: "cover" }} /> : null}{[["Patient ID", selected.id], ["Full Name", selected.full_name?.trim() || "Name not provided"], ["Email", selected.email || "—"], ["Contact Number", selected.phone || "—"], ["Role", selected.role || "PATIENT"]].map(([label, value], index) => <div className="ad-product-detail-row" key={`${label}-${index}`}><b>{label}</b><span>{value}</span></div>)}<Link className="ad-btn ad-btn-primary" href={`/admin/appointments?patient=${encodeURIComponent(selected.id)}`} onClick={() => setSelected(null)}>View Appointments</Link></div>
       </section>
     </div> : null}
   </AdminShell>;

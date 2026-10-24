@@ -1,30 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { ArrowRight, Search, Stethoscope } from "lucide-react";
+import { Search, Stethoscope } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { ServiceImage } from "@/components/services/ServiceImage";
+import { DirectoryServiceCard, type DirectoryService } from "./DirectoryServiceCard";
+import { healthcareServiceSlugs, orderHealthcareServices } from "@/lib/services/service-order.mjs";
 import { filterServicesBySection } from "@/lib/services/service-section-filter.mjs";
 
-type DirectoryService = {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  short_description: string | null;
-  image_url: string | null;
-  section: "clinical_departments" | "services_facilities";
-};
-
-// Keep the established clinical department sequence while membership comes from public.services.section.
-const departmentOrder = new Map([
-  "specialist-consultation", "preventive-healthcare", "diagnostics", "general-medicine",
-  "emergency-care", "pediatrics", "pathology-lab", "neurology", "pharmacy", "cardiology",
-].map((slug, index) => [slug, index]));
+const departmentOrder = new Map(healthcareServiceSlugs.map((slug, index) => [slug, index]));
 
 
-export function ServicesDirectory({ section }: { section: DirectoryService["section"] }) {
+export function ServicesDirectory({ section, healthcare = false, showSearch = true, limit }: { section: DirectoryService["section"]; healthcare?: boolean; showSearch?: boolean; limit?: number }) {
   const [services, setServices] = useState<DirectoryService[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -91,23 +77,32 @@ export function ServicesDirectory({ section }: { section: DirectoryService["sect
       });
     const refreshWhenFocused = () => { void loadServices(); };
     window.addEventListener("focus", refreshWhenFocused);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadServices();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    // Reconcile even when Realtime is unavailable or not enabled for this table.
+    const refreshInterval = healthcare ? window.setInterval(refreshWhenVisible, 30_000) : null;
 
     return () => {
       active = false;
       window.removeEventListener("focus", refreshWhenFocused);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      if (refreshInterval !== null) window.clearInterval(refreshInterval);
       void db.removeChannel(channel);
     };
-  }, [section]);
+  }, [section, healthcare]);
 
   const scopedServices = useMemo(() => {
     if (loadedSection !== section) return [];
+    if (healthcare) return orderHealthcareServices(services) as DirectoryService[];
     if (section === "clinical_departments") return [...services].sort((a, b) => {
       const aOrder = departmentOrder.get(a.slug) ?? Number.MAX_SAFE_INTEGER;
       const bOrder = departmentOrder.get(b.slug) ?? Number.MAX_SAFE_INTEGER;
       return aOrder - bOrder || a.name.localeCompare(b.name);
     });
     return services;
-  }, [loadedSection, section, services]);
+  }, [loadedSection, section, services, healthcare]);
 
   const filteredServices = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -115,32 +110,21 @@ export function ServicesDirectory({ section }: { section: DirectoryService["sect
     return scopedServices.filter((service) => service.name.toLowerCase().includes(normalized));
   }, [query, scopedServices]);
 
-  return <>
-    <div className={`services-directory-controls${section === "services_facilities" ? " services-facilities-controls" : ""}`}>
+  return <div className={healthcare ? "healthcare-services-directory" : undefined}>
+    {showSearch && <div className={`services-directory-controls${section === "services_facilities" ? " services-facilities-controls" : ""}`}>
       <label className="services-directory-search">
         <Search size={19} aria-hidden="true" />
-        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={section === "clinical_departments" ? "Search Clinical Departments" : "Search Services"} aria-label={section === "clinical_departments" ? "Search clinical departments" : "Search services"} />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={section === "clinical_departments" && !healthcare ? "Search Clinical Departments" : "Search Services"} aria-label={section === "clinical_departments" && !healthcare ? "Search clinical departments" : "Search services"} />
       </label>
-    </div>
+    </div>}
 
     {loading || loadedSection !== section ? <p className="services-directory-state" role="status">Loading services…</p>
       : error ? <p className="services-directory-state services-directory-error" role="alert">{error}</p>
         : filteredServices.length ? <div className={`services-directory-grid${section === "services_facilities" ? " services-facilities-grid" : ""}`}>
-          {filteredServices.map((service) => <article className={`services-directory-card${section === "services_facilities" ? " services-facilities-card" : ""}`} key={service.id}>
-            <div className="services-directory-image">
-              <ServiceImage src={service.image_url} alt={service.name} loading="lazy" />
-            </div>
-            <div className="services-directory-card-body">
-              <h2>{section === "services_facilities" ? <Stethoscope size={17} aria-hidden="true" /> : <span className="clinical-department-card-icon"><Stethoscope size={16} aria-hidden="true" /></span>}{service.name}</h2>
-              <p>{service.short_description || service.description || "Service information is available on the details page."}</p>
-              <Link className="services-directory-details" href={`/services/${encodeURIComponent(service.slug)}?section=${service.section}`}>
-                View Details <ArrowRight size={16} aria-hidden="true" />
-              </Link>
-            </div>
-          </article>)}
+          {filteredServices.slice(0, limit).map((service) => <DirectoryServiceCard key={service.id} service={service} healthcare={healthcare} />)}
         </div> : <div className="services-directory-state" role="status">
           <Stethoscope size={25} aria-hidden="true" />
           <span>{scopedServices.length ? "No listings match your search. Try another term." : section === "clinical_departments" ? "No Clinical Departments are currently listed." : "No Services & Facilities listings are currently listed."}</span>
         </div>}
-  </>;
+  </div>;
 }

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {buildMedicalHistory,chargeAmount,hasReleasedResult,isCurrentAdmission,isDemo,patientDateKey,summarizeBills} from '../lib/patient/dashboard.mjs';
 import {loadPatientSection,patientRows,relatedRows} from '../lib/patient/queries.mjs';
 
@@ -7,14 +8,33 @@ const patient='00000000-0000-4000-8000-000000000001';
 const charges=[1500,900,1000,200,330].map((amount,i)=>({id:`charge-${i}`,patient_id:patient,bill_id:'bill',item_name:`Fixture charge ${i}`,category:i>2?'medical_supply':'consultation',quantity:1,unit_price:amount,total_amount:amount,is_demo:true}));
 const bills=[{id:'bill',patient_id:patient,bill_number:'DEMO-TEST',is_demo:true,total_amount:99999}];
 const payments=[{id:'payment',patient_id:patient,bill_id:'bill',amount:2000,status:'completed',is_demo:true}];
+const roomHistoryMigration=readFileSync(new URL('../supabase/migrations/20261219000000_hospital_room_assignment_admin_workflow.sql',import.meta.url),'utf8');
+
+test('room history migration defines RLS, foreign keys, active occupancy constraints and atomic admin RPCs',()=>{
+  assert.match(roomHistoryMigration,/create table if not exists public\.hospital_room_assignment_history/i);
+  assert.match(roomHistoryMigration,/admission_id uuid not null references public\.patient_admissions\(id\)/i);
+  assert.match(roomHistoryMigration,/patient_id uuid not null references auth\.users\(id\)/i);
+  assert.match(roomHistoryMigration,/room_id uuid not null references public\.hospital_rooms\(id\)/i);
+  assert.match(roomHistoryMigration,/enable row level security/i);
+  assert.match(roomHistoryMigration,/hospital_room_assignment_history_one_current_idx[\s\S]*?where released_at is null/i);
+  assert.match(roomHistoryMigration,/patient_admissions_one_active_room_idx[\s\S]*?where room_id is not null and status = 'admitted' and discharged_at is null/i);
+  for(const rpc of ['admin_assign_hospital_bed','admin_transfer_hospital_bed','admin_discharge_hospital_admission']) {
+    assert.match(roomHistoryMigration,new RegExp(`create or replace function public\\.${rpc}\\([\\s\\S]*?security definer set search_path = ''`,'i'));
+    assert.match(roomHistoryMigration,new RegExp(`grant execute on function public\\.${rpc}\\(`,'i'));
+  }
+});
 
 function fixture(tables={},errors={}) {
   const calls=[];
-  return {calls,from(table){
+  return {calls,rpc(name,args){calls.push({rpc:name,args});return Promise.resolve(errors[name]?{error:errors[name]}:{data:tables.careHistory??[]});},from(table){
     const filters=[];
     let columns;
     let order;
-    return {select(value){columns=value;return this;},eq(key,value){filters.push([key,value]);return this;},in(key,values){filters.push([key,values]);return this;},order(column,options){order={column,...options};return this;},async range(start,end){
+    return {select(value){columns=value;return this;},eq(key,value){filters.push([key,value]);return this;},in(key,values){filters.push([key,values]);return this;},order(column,options){order={column,...options};return this;},then(resolve,reject){
+      calls.push({table,filters,columns,order});
+      const result=errors[table]?{error:errors[table]}:{data:(tables[table]??[]).filter(row=>filters.every(([key,value])=>Array.isArray(value)?value.includes(row[key]):row[key]===value))};
+      return Promise.resolve(result).then(resolve,reject);
+    },async range(start,end){
       calls.push({table,filters,columns,order});
       if(errors[table])return {error:errors[table]};
       return {data:(tables[table]??[]).filter(row=>filters.every(([key,value])=>Array.isArray(value)?value.includes(row[key]):row[key]===value)).slice(start,end+1)};
@@ -31,6 +51,50 @@ test('billing uses five actual charges and completed payments: 3930 - 2000 = 193
   assert.equal(bill.demo,true);
   assert.equal(charges.filter(row=>row.category==='medical_supply').length,2);
   assert.equal(charges.filter(row=>row.category==='medical_supply').reduce((sum,row)=>sum+chargeAmount(row),0),530);
+});
+
+test('room assignment history is not queried until its migration is enabled and current room data still loads',async()=>{
+  const oldFlag=process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED;
+  delete process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED;
+  try {
+    const roomId='00000000-0000-4000-8000-000000000003';
+    const client=fixture({
+      patient_admissions:[{id:'admission',patient_id:patient,room_id:roomId,status:'admitted',admitted_at:'2026-10-18T01:00:00Z',discharged_at:null}],
+      hospital_rooms:[{id:roomId,room_number:'205',bed_number:'Bed 2',room_type:'Private',status:'occupied'}],
+    });
+    const result=await loadPatientSection(client,patient,'room-information');
+    assert.equal(result.roomHistoryEnabled,false);
+    assert.equal(result.admissions[0].room.room_number,'205');
+    assert.equal(result.admissions[0].room_assignment_history.length,0);
+    assert.equal(client.calls.some(call=>call.table==='hospital_room_assignment_history'),false);
+  } finally {
+    if(oldFlag===undefined)delete process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED;
+    else process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED=oldFlag;
+  }
+});
+
+test('room assignment history loads prior assignments only after explicitly enabled',async()=>{
+  const oldFlag=process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED;
+  process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED='true';
+  try {
+    const currentRoom='00000000-0000-4000-8000-000000000003',previousRoom='00000000-0000-4000-8000-000000000005';
+    const client=fixture({
+      patient_admissions:[{id:'admission',patient_id:patient,room_id:currentRoom,status:'admitted',admitted_at:'2026-10-18T01:00:00Z',discharged_at:null}],
+      hospital_rooms:[{id:currentRoom,room_number:'205',bed_number:'Bed 2',room_type:'Private',status:'occupied'},{id:previousRoom,room_number:'204',bed_number:'Bed 1',room_type:'Semi-private',status:'available'}],
+      hospital_room_assignment_history:[
+        {id:'prior',admission_id:'admission',patient_id:patient,room_id:previousRoom,assigned_at:'2026-10-18T01:00:00Z',released_at:'2026-10-19T02:00:00Z'},
+        {id:'current',admission_id:'admission',patient_id:patient,room_id:currentRoom,assigned_at:'2026-10-19T02:00:00Z',released_at:null},
+      ],
+    });
+    const result=await loadPatientSection(client,patient,'room-information');
+    assert.equal(result.roomHistoryEnabled,true);
+    assert.equal(result.admissions[0].room_assignment_history.length,2);
+    assert.equal(result.admissions[0].room_assignment_history[0].room.room_number,'204');
+    assert(client.calls.some(call=>call.table==='hospital_room_assignment_history'));
+  } finally {
+    if(oldFlag===undefined)delete process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED;
+    else process.env.NEXT_PUBLIC_ROOM_ASSIGNMENT_HISTORY_ENABLED=oldFlag;
+  }
 });
 
 test('demo simulations update only demo balances and do not affect real bill totals',()=>{
@@ -78,17 +142,23 @@ test('financial calculations round to cents and do not produce negative outstand
   assert.equal(bill.balance,0);
 });
 
-test('three clinical entries and a linked completed CBC booking produce three timeline entries without claiming a verified result',()=>{
-  const records=[{id:'check',record_type:'check_up',occurred_at:'2026-01-01',is_demo:true},{id:'lab',category:'laboratory',title:'CBC',lab_test_booking_id:'cbc',occurred_at:'2026-01-02',is_demo:true},{id:'scan',category:'diagnostic',occurred_at:'2026-01-03',is_demo:true}];
-  const history=buildMedicalHistory(records,[{id:'cbc',lab_test_id:'test',status:'completed',booking_date:'2026-01-02'}],[{id:'test',name:'CBC'}],[]);
-  assert.equal(history.length,3);
+test('medical records and laboratory bookings stay separate and bookings never imply a result',()=>{
+  const records=[{id:'check',record_type:'check_up',title:'Check-up',record_date:'2026-01-01',result_status:'recorded',is_demo:true},{id:'lab',record_type:'laboratory',title:'CBC',record_date:'2026-01-02',result_status:'recorded',is_demo:true},{id:'scan',record_type:'diagnostic',title:'Scan',record_date:'2026-01-03',result_status:'recorded',is_demo:true}];
+  const history=buildMedicalHistory(records,[{id:'cbc',lab_test_id:'test',status:'completed',booking_date:'2026-01-02',booking_time:'08:30:00',is_demo:true}],[{id:'test',name:'CBC'}],[]);
+  assert.equal(history.length,4);
   assert.deepEqual(new Set(history.map(row=>row.kind)),new Set(['checkup','laboratory','diagnostic']));
   assert(history.every(row=>row.demo && !row.resultAvailable));
-  assert.match(history.find(row=>row.title==='CBC').description,/CBC \(completed\)/);
+  const booking=history.find(row=>row.id==='booking-cbc');
+  assert.equal(booking.title,'CBC');
+  assert.equal(booking.bookingTime,'08:30');
+  assert.equal(booking.status,'Booked');
+  assert.equal(booking.bookingStatus,'completed');
+  assert.match(booking.description,/does not confirm a completed or verified result/);
 });
 
-test('unlinked CBC bookings appear, while completion alone never verifies a result and drafts remain hidden',()=>{
-  const history=buildMedicalHistory([{id:'draft',status:'draft'}],[{id:'cbc',test_id:'test',status:'completed'}],[{id:'test',name:'CBC'}],[]);
+test('unlinked CBC bookings appear, while completion alone never verifies a result',()=>{
+  // Clinical rows are already release-filtered by Supabase RLS before this display helper receives them.
+  const history=buildMedicalHistory([],[{id:'cbc',lab_test_id:'test',status:'completed'}],[{id:'test',name:'CBC'}],[]);
   assert.equal(history.length,1);
   assert.equal(history[0].title,'CBC');
   assert.equal(history[0].resultAvailable,false);
@@ -97,24 +167,35 @@ test('unlinked CBC bookings appear, while completion alone never verifies a resu
 });
 
 test('discharged admissions and historical demo rooms never count as current',()=>{
-  assert.equal(isCurrentAdmission({status:'discharged',discharge_date:'2026-01-02'}),false);
-  assert.equal(isCurrentAdmission({status:'admitted',discharge_date:'2026-01-02'}),false);
+  assert.equal(isCurrentAdmission({status:'discharged',discharged_at:'2026-01-02'}),false);
+  assert.equal(isCurrentAdmission({status:'admitted',discharged_at:'2026-01-02'}),false);
   assert.equal(isCurrentAdmission({status:'pending'}),false);
-  assert.equal(isCurrentAdmission({status:'admitted',discharge_date:null}),true);
+  assert.equal(isCurrentAdmission({status:'admitted',discharged_at:null}),true);
   assert.equal(isDemo({room_number:'DEMO-R201'}),true);
 });
 
 test('all seven modules scope patient records by the authenticated ID and only resolve related IDs',async()=>{
   const doctorId='00000000-0000-4000-8000-000000000002',roomId='00000000-0000-4000-8000-000000000003',testId='00000000-0000-4000-8000-000000000004';
-  const tables={appointments:[{id:'00000000-0000-4000-8000-000000000010',patient_id:patient},{id:'00000000-0000-4000-8000-000000000011',patient_id:'00000000-0000-4000-8000-000000000099'}],patient_bills:bills,patient_payments:payments,patient_medical_charges:charges,online_payments:[],patient_admissions:[{id:'admission',patient_id:patient,room_id:roomId,doctor_id:doctorId}],hospital_rooms:[{id:roomId,room_number:'DEMO-R201'}],patient_doctor_assignments:[{id:'assignment',patient_id:patient,doctor_id:doctorId,ended_at:null},{id:'ended',patient_id:patient,doctor_id:'00000000-0000-4000-8000-000000000005',ended_at:'2026-01-01'}],doctors:[{id:doctorId,display_name:'Fixture doctor'}],patient_medical_records:[{id:'record',patient_id:patient,doctor_id:doctorId}],lab_test_bookings:[{id:'booking',patient_id:patient,lab_test_id:testId}],lab_tests:[{id:testId,name:'CBC'}]};
+  const tables={appointments:[{id:'00000000-0000-4000-8000-000000000010',patient_id:patient},{id:'00000000-0000-4000-8000-000000000011',patient_id:'00000000-0000-4000-8000-000000000099'}],patient_bills:bills,patient_payments:payments,patient_medical_charges:[...charges,{id:'supply-1',patient_id:patient,category:'medical_supply',is_demo:false},{id:'supply-2',patient_id:patient,category:'medicine',is_demo:false}],online_payments:[],patient_admissions:[{id:'admission',patient_id:patient,room_id:roomId,doctor_id:doctorId,admitted_at:'2026-10-18T01:00:00Z',discharged_at:'2026-10-20T03:00:00Z',status:'discharged',is_demo:true}],hospital_rooms:[{id:roomId,room_number:'DEMO-R201',bed_number:'Bed 1',room_type:'Private Room',status:'available',is_demo:true}],doctors:[{id:doctorId,display_name:'Fixture doctor',specialty:'Family Medicine',department:'Family Medicine',is_demo:true}],patient_medical_records:[{id:'record',patient_id:patient,doctor_id:doctorId}],lab_test_bookings:[{id:'booking',patient_id:patient,lab_test_id:testId}],lab_tests:[{id:testId,name:'CBC'}]};
   for(const section of ['assigned-doctor','medical-history','admissions','room-information','billing','medical-supplies']) {
     const client=fixture(tables),data=await loadPatientSection(client,patient,section);
-    for(const call of client.calls.filter(call=>!['doctors','hospital_rooms','lab_tests'].includes(call.table))) {
+    for(const call of client.calls.filter(call=>call.table&&!['doctors','hospital_rooms','lab_tests'].includes(call.table))) {
       assert(call.table!=='patient_bill_items',`${section}: nonexistent invoice table must never be queried`);
       assert(call.filters.some(([key,value])=>key==='patient_id'&&value===patient),`${section}: ${call.table}`);
     }
-    if(section==='assigned-doctor') {assert.equal(data.assignments.length,1);assert.equal(data.doctors[0].id,doctorId);}
-    if(section==='room-information')assert.equal(data.rooms[0].room_number,'DEMO-R201');
+    if(['assigned-doctor','room-information','admissions'].includes(section)){const admissionCall=client.calls.find(call=>call.table==='patient_admissions');assert.equal(admissionCall.order.column,'admitted_at');assert.match(admissionCall.columns,/admitted_at,discharged_at/);assert(!admissionCall.columns.includes('admission_date'));}
+    if(section==='assigned-doctor')assert.equal(data.admissions[0].doctor.id,doctorId);
+    if(section==='room-information')assert.equal(data.admissions[0].room.room_number,'DEMO-R201');
+    if(section==='medical-history') {
+      const recordCall=client.calls.find(call=>call.table==='patient_medical_records');
+      const bookingCall=client.calls.find(call=>call.table==='lab_test_bookings');
+      assert.equal(recordCall.columns,'id,patient_id,doctor_id,record_type,title,description,record_date,result_status,is_demo,demo_key,created_at');
+      assert.equal(recordCall.order.column,'record_date');
+      assert.equal(bookingCall.columns,'id,patient_id,lab_test_id,booking_date,booking_time,status,notes');
+      assert.equal(bookingCall.order.column,'booking_date');
+      assert(!client.calls.some(call=>['patient_lab_orders','public_doctors'].includes(call.table)));
+    }
+    assert(!client.calls.some(call=>call.table==='patient_room_assignments'||call.table==='patient_doctor_assignments'));
     if(section==='medical-supplies')assert.equal(data.charges.length,2);
   }
   assert.equal((await patientRows(fixture(tables),'appointments',patient)).length,1);
@@ -122,25 +203,41 @@ test('all seven modules scope patient records by the authenticated ID and only r
 });
 
 test('missing tables and denied reads surface errors instead of empty successful pages',async()=>{
-  for(const code of ['PGRST205','42501']) await assert.rejects(loadPatientSection(fixture({}, {patient_bills:{code,message:'sensitive server detail'}}),patient,'billing'),error=>error.code===code&&error.table==='patient_bills'&&!error.message.includes('sensitive'));
+  for(const code of ['PGRST205','42501']) await assert.rejects(loadPatientSection(fixture({}, {patient_bills:{code,message:'database detail'}}),patient,'billing'),error=>error.code===code&&error.table==='patient_bills'&&error.message.includes('database detail'));
 });
 
-test('billing queries only non-demo bills, charges and payments without loading simulations or patient_bill_items',async()=>{
-  const realBill={id:'real-bill',patient_id:patient,bill_number:'INV-1',is_demo:false};
+test('a missing optional lab relation does not hide medical records and preserves its database error',async()=>{
+  const client=fixture({patient_medical_records:[{id:'record',patient_id:patient,record_type:'consultation',title:'Visit'}],lab_test_bookings:[]},{lab_test_bookings:{code:'PGRST205',message:'lab_test_bookings is unavailable'}});
+  const data=await loadPatientSection(client,patient,'medical-history');
+  assert.equal(data.records.length,1);
+  assert.deepEqual(data.bookings,[]);
+  assert.equal(data.moduleErrors[0].code,'PGRST205');
+  assert.match(data.moduleErrors[0].message,/lab_test_bookings is unavailable/);
+});
+
+test('billing loads authenticated demo history separately from approved genuine bills',async()=>{
+  const realBill={id:'real-bill',patient_id:patient,bill_number:'INV-1',is_demo:false,payment_approved_at:'2026-01-01T00:00:00Z'};
   const realCharge={id:'real-charge',patient_id:patient,bill_id:'real-bill',quantity:1,unit_price:100,is_demo:false};
   const realPayment={id:'real-payment',patient_id:patient,bill_id:'real-bill',amount:25,status:'completed',is_demo:false};
+  const demoCharges=charges.map(row=>({...row,bill_id:'bill'}));
+  const demoPayment={...payments[0],bill_id:'bill'};
   const simulation={id:'sim-1',patient_id:patient,bill_id:'bill',reference_number:'DEMO-PAY-ONE',amount:100,payment_method:'gcash',status:'simulated',idempotency_key:'key-1',created_at:'2026-10-23T00:00:00Z'};
-  const client=fixture({patient_bills:[...bills,realBill],patient_medical_charges:[...charges,realCharge],patient_payments:[...payments,realPayment],online_payments:[],demo_payment_simulations:[simulation]});
+  const client=fixture({patient_bills:[...bills,realBill],patient_medical_charges:[...demoCharges,realCharge],patient_payments:[demoPayment,realPayment],online_payments:[],demo_payment_simulations:[simulation]});
   const data=await loadPatientSection(client,patient,'billing');
   assert.deepEqual(data.bills,[realBill]);
   assert.deepEqual(data.charges,[realCharge]);
   assert.deepEqual(data.payments,[realPayment]);
-  assert(!Object.hasOwn(data,'demoPayments'));
-  for(const table of ['patient_bills','patient_medical_charges','patient_payments']) {
-    const call=client.calls.find(row=>row.table===table);
-    assert(call);
-    assert(call.filters.some(([key,value])=>key==='is_demo'&&value===false));
-    if(table!=='patient_bills') assert(call.filters.some(([key,value])=>key==='bill_id'&&value.includes('real-bill')));
+  assert.deepEqual(data.demoBills,bills);
+  assert.deepEqual(data.demoCharges,demoCharges);
+  assert.deepEqual(data.demoPayments,[demoPayment]);
+  const billRead=client.calls.find(row=>row.table==='patient_bills');
+  assert(billRead.filters.some(([key,value])=>key==='patient_id'&&value===patient));
+  for(const table of ['patient_medical_charges','patient_payments']) {
+    const calls=client.calls.filter(row=>row.table===table);
+    assert.equal(calls.length,2);
+    assert(calls.every(call=>call.filters.some(([key,value])=>key==='patient_id'&&value===patient)));
+    assert(calls.some(call=>call.filters.some(([key,value])=>key==='is_demo'&&value===false)&&call.filters.some(([key,value])=>key==='bill_id'&&value.includes('real-bill'))));
+    assert(calls.some(call=>!call.filters.some(([key])=>key==='is_demo')&&call.filters.some(([key,value])=>key==='bill_id'&&value.includes('bill'))));
   }
   assert(!client.calls.some(call=>call.table==='demo_payment_simulations'));
   assert(!client.calls.some(call=>call.table==='patient_bill_items'));
@@ -168,15 +265,15 @@ test('related lookups skip null-like and malformed UUID values before Supabase .
   }
 });
 
-test('CBC aliases on the same Manila date merge without an explicit link and preserve booking status',()=>{
-  const records=[{id:'r',category:'laboratory',title:'Complete Blood Count (CBC)',record_date:'2026-01-02T17:00:00Z',is_demo:true,status:'recorded'}];
+test('medical records and bookings are not merged without a confirmed foreign key',()=>{
+  const records=[{id:'r',record_type:'laboratory',title:'Complete Blood Count (CBC)',record_date:'2026-01-02T17:00:00Z',is_demo:true,result_status:'recorded'}];
   const bookings=[{id:'b',lab_test_id:'cbc',booking_date:'2026-01-03',status:'completed'}];
   const tests=[{id:'cbc',name:'CBC'}];
   const result=buildMedicalHistory(records,bookings,tests,[]);
-  assert.equal(result.length,1);
-  assert.equal(result[0].bookingStatus,'completed');
-  assert.equal(result[0].resultAvailable,false);
-  assert.match(result[0].description,/Laboratory booking: CBC/);
+  assert.equal(result.length,2);
+  assert.equal(result.find(row=>row.id==='booking-b').bookingStatus,'completed');
+  assert.equal(result.find(row=>row.id==='booking-b').resultAvailable,false);
+  assert.match(result.find(row=>row.id==='booking-b').description,/does not confirm a completed or verified result/);
   assert.equal(records[0].lab_test_booking_id,undefined);
   assert.equal(bookings[0].medical_record_id,undefined);
   assert.equal(buildMedicalHistory(records,[{...bookings[0],booking_date:'2026-01-04'}],tests,[]).length,2);
